@@ -48,6 +48,17 @@ export function getRecordAccentColor(record: {
   return "var(--muted)";
 }
 
+export function getRecordAccentTint(record: {
+  category: string;
+  cookMemberId: string | null;
+}): string {
+  const color = getRecordAccentColor(record);
+  if (color.startsWith("var(")) {
+    return "color-mix(in srgb, var(--muted) 14%, var(--paper-elevated))";
+  }
+  return `color-mix(in srgb, ${color} 34%, white)`;
+}
+
 export function applyCookCount(
   cookCounts: Record<string, number>,
   cookMemberId: string | null

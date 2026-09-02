@@ -33,6 +33,8 @@ export function CandidatePicker({
   const [showNewForm, setShowNewForm] = useState(false);
   const [pending, startTransition] = useTransition();
 
+  const chipTone = category === "home_cooked" ? "candidate-chip-home" : "candidate-chip-out";
+
   const load = (q = query) => {
     startTransition(async () => {
       const list = await getCandidates(category, { query: q });
@@ -82,85 +84,82 @@ export function CandidatePicker({
   };
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-3">
       {category === "dining_out" && unknownCandidate && (
         <button
           type="button"
           onClick={() => onSelect(unknownCandidate.id, unknownCandidate.name)}
-          className={`flex w-full items-baseline justify-between gap-4 border-b border-line py-3 text-left ${
-            selectedId === unknownCandidate.id ? "text-ink" : "text-muted hover:text-ink"
+          className={`candidate-chip candidate-chip-unknown candidate-chip-out ${
+            selectedId === unknownCandidate.id ? "candidate-chip-on" : ""
           }`}
         >
-          <span>
-            <span
-              className={`tracking-wide ${selectedId === unknownCandidate.id ? "font-serif text-ink" : ""}`}
-            >
-              {unknownCandidate.name}
+          <span className="min-w-0 flex-1">
+            <span className="block font-medium">{unknownCandidate.name}</span>
+            <span className="meta mt-0.5 block font-normal">
+              店名・メニューを覚えていないときに選ぶ
             </span>
-            <span className="meta mt-1 block">店名・メニューを覚えていないときに選ぶ</span>
           </span>
-          <span className="meta shrink-0">
+          <span className="candidate-chip-count shrink-0">
             {unknownCandidate.usageCount}回
-            {unknownCandidate.lastUsedDate
-              ? ` · ${unknownCandidate.lastUsedDate}`
-              : " · 未使用"}
           </span>
         </button>
       )}
 
-      <div className="flex flex-wrap items-end gap-4">
-        <select
-          className="input max-w-[160px]"
-          value={sortOrder}
-          onChange={(e) => handleSortChange(e.target.value as CandidateSortOrder)}
-        >
-          {Object.entries(SORT_ORDER_LABELS).map(([value, label]) => (
-            <option key={value} value={value}>
-              {label}
-            </option>
-          ))}
-        </select>
-        <input
-          className="input flex-1"
-          placeholder="候補を検索（入力で絞り込み）"
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-          onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), load(query))}
-        />
-        {pending && <span className="meta shrink-0">検索中</span>}
+      <input
+        className="input"
+        placeholder="候補を検索"
+        value={query}
+        onChange={(e) => setQuery(e.target.value)}
+        onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), load(query))}
+      />
+
+      <div className="flex flex-wrap items-center gap-1.5">
+        {Object.entries(SORT_ORDER_LABELS).map(([value, label]) => (
+          <button
+            key={value}
+            type="button"
+            className={`choice choice-sm ${
+              sortOrder === value
+                ? `choice-on ${category === "home_cooked" ? "choice-home" : "choice-out"}`
+                : ""
+            }`}
+            onClick={() => handleSortChange(value as CandidateSortOrder)}
+          >
+            {label}
+          </button>
+        ))}
+        {pending && <span className="meta ml-1">検索中</span>}
       </div>
 
-      <div className="max-h-64 overflow-y-auto border-t border-line">
-        {!loaded && <p className="py-4 text-sm text-muted">読み込み中</p>}
+      <div className="candidate-grid">
+        {!loaded && <p className="py-3 text-sm text-muted">読み込み中</p>}
         {loaded && candidates.length === 0 && (
-          <p className="py-4 text-sm text-muted">候補がありません</p>
+          <p className="py-3 text-sm text-muted">候補がありません</p>
         )}
         {candidates.map((c) => (
           <button
             key={c.id}
             type="button"
             onClick={() => onSelect(c.id, c.name)}
-            className={`flex w-full items-baseline justify-between gap-4 border-b border-line py-3 text-left ${
-              selectedId === c.id ? "text-ink" : "text-muted hover:text-ink"
+            className={`candidate-chip ${chipTone} ${
+              selectedId === c.id ? "candidate-chip-on" : ""
             }`}
           >
-            <span className={`tracking-wide ${selectedId === c.id ? "font-serif text-ink" : ""}`}>
-              {c.name}
-            </span>
-            <span className="meta shrink-0">
-              {c.usageCount}回
-              {c.lastUsedDate ? ` · ${c.lastUsedDate}` : " · 未使用"}
+            <span>{c.name}</span>
+            <span className="candidate-chip-count">
+              {c.usageCount}
+              {c.lastUsedDate ? ` · ${c.lastUsedDate.slice(5)}` : ""}
             </span>
           </button>
         ))}
       </div>
 
       {!showNewForm ? (
-        <button type="button" className="btn btn-secondary" onClick={() => setShowNewForm(true)}>
-          新規候補を追加
+        <button type="button" className="btn btn-secondary btn-sm" onClick={() => setShowNewForm(true)}>
+          ＋ 新規候補を追加
         </button>
       ) : (
-        <div className="space-y-3 pt-2">
+        <div className="space-y-3 rounded-xl border border-line bg-paper-elevated p-3">
           <input
             className="input"
             placeholder="名称"
@@ -173,11 +172,11 @@ export function CandidatePicker({
             value={newReading}
             onChange={(e) => setNewReading(e.target.value)}
           />
-          <div className="flex gap-4">
-            <button type="button" className="btn btn-primary" onClick={handleCreate} disabled={pending}>
+          <div className="flex gap-2">
+            <button type="button" className="btn btn-primary btn-sm" onClick={handleCreate} disabled={pending}>
               追加
             </button>
-            <button type="button" className="btn btn-secondary" onClick={() => setShowNewForm(false)}>
+            <button type="button" className="btn btn-ghost btn-sm" onClick={() => setShowNewForm(false)}>
               キャンセル
             </button>
           </div>

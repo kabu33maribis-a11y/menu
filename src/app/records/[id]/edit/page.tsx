@@ -21,19 +21,13 @@ export default async function EditRecordPage({ params, searchParams }: Props) {
   if (!record) notFound();
 
   return (
-    <div className="space-y-6">
-      <div className="card card-accent">
-        <p className="kicker mb-1">✏️ 編集</p>
-        <h2 className="page-title">記録を編集</h2>
-      </div>
-      <div className="card">
-        <RecordForm
-          members={members}
-          initial={record}
-          sortOrder={sortOrder}
-          returnTo={returnTo}
-        />
-      </div>
+    <div className="card card-flush">
+      <RecordForm
+        members={members}
+        initial={record}
+        sortOrder={sortOrder}
+        returnTo={returnTo}
+      />
     </div>
   );
 }

@@ -1,39 +1,15 @@
-import { RecordForm } from "@/components/RecordForm";
-import { getMembers } from "@/lib/actions/members";
-import { getCandidateSortOrder } from "@/lib/actions/settings";
-import type { MealCategory, MealType } from "@/lib/db";
+import { redirect } from "next/navigation";
 
 type Props = {
-  searchParams: Promise<{
-    date?: string;
-    mealType?: string;
-    category?: string;
-    candidateId?: string;
-    returnTo?: string;
-  }>;
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
 };
 
 export default async function NewRecordPage({ searchParams }: Props) {
   const params = await searchParams;
-  const [members, sortOrder] = await Promise.all([getMembers(), getCandidateSortOrder()]);
-
-  return (
-    <div className="space-y-6">
-      <div className="card card-accent">
-        <p className="kicker mb-1">✏️ 新規</p>
-        <h2 className="page-title">記録を追加</h2>
-      </div>
-      <div className="card">
-        <RecordForm
-        members={members}
-        defaultDate={params.date}
-        defaultMealType={params.mealType as MealType | undefined}
-        defaultCategory={params.category as MealCategory | undefined}
-        defaultCandidateId={params.candidateId}
-        sortOrder={sortOrder}
-        returnTo={params.returnTo}
-      />
-      </div>
-    </div>
-  );
+  const qs = new URLSearchParams();
+  for (const [key, value] of Object.entries(params)) {
+    if (typeof value === "string" && value) qs.set(key, value);
+  }
+  const query = qs.toString();
+  redirect(query ? `/?${query}` : "/");
 }

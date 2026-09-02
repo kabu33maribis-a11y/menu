@@ -10,7 +10,7 @@ export default async function SettingsPage() {
   ]);
 
   return (
-    <div className="space-y-10">
+    <div className="space-y-4">
       <h2 className="page-title">設定</h2>
       <SettingsPageClient
         members={members}

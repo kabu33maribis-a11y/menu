@@ -8,6 +8,7 @@ import {
   DINING_OUT_COLOR,
   formatDate,
   getRecordAccentColor,
+  getRecordAccentTint,
   MEMBER_COLORS,
   todayString,
 } from "@/lib/constants";
@@ -94,7 +95,7 @@ export function CalendarGrid({ year, month, records, memberMap, members }: Props
                 return (
                   <Link
                     key={slotType}
-                    href={`/records/new?date=${dateStr}&mealType=${slotType}&returnTo=${returnToParam}`}
+                    href={`/?date=${dateStr}&mealType=${slotType}&returnTo=${returnToParam}`}
                     className="cal-cell-slot cal-cell-slot-empty"
                     title={`${label}を追加`}
                     onClick={(e) => e.stopPropagation()}
@@ -106,6 +107,7 @@ export function CalendarGrid({ year, month, records, memberMap, members }: Props
               }
               return items.map((r) => {
                 const accent = getRecordAccentColor(r);
+                const tint = getRecordAccentTint(r);
                 const cookName = cookDisplayName(r.cookMemberId, memberMap);
                 const prefix = r.category === "dining_out" ? "外" : "自";
                 return (
@@ -113,11 +115,10 @@ export function CalendarGrid({ year, month, records, memberMap, members }: Props
                     key={r.id}
                     href={`/records/${r.id}/edit?returnTo=${returnToParam}`}
                     className="cal-cell-slot cal-cell-slot-filled"
-                    style={{ borderLeftColor: accent }}
+                    style={{ borderLeftColor: accent, backgroundColor: tint }}
                     title={`${label} ${prefix} ${r.candidateName}${cookName ? ` (${cookName})` : ""} — クリックで編集`}
                     onClick={(e) => e.stopPropagation()}
                   >
-                    <span className="shrink-0 font-semibold opacity-70">{label}</span>
                     <span className="min-w-0 truncate">
                       {r.category === "dining_out" ? "🍽 " : "🍳 "}
                       {r.candidateName}
@@ -147,16 +148,16 @@ export function CalendarGrid({ year, month, records, memberMap, members }: Props
                   {other.length > 0 &&
                     other.map((r) => {
                       const accent = getRecordAccentColor(r);
+                      const tint = getRecordAccentTint(r);
                       return (
                         <Link
                           key={r.id}
                           href={`/records/${r.id}/edit?returnTo=${returnToParam}`}
                           className="cal-cell-slot cal-cell-slot-filled"
-                          style={{ borderLeftColor: accent }}
+                          style={{ borderLeftColor: accent, backgroundColor: tint }}
                           title={`他 ${r.candidateName} — クリックで編集`}
                           onClick={(e) => e.stopPropagation()}
                         >
-                          <span className="shrink-0 font-semibold opacity-70">他</span>
                           <span className="min-w-0 truncate">{r.candidateName}</span>
                         </Link>
                       );

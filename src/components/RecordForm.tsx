@@ -4,7 +4,7 @@ import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { CandidatePicker } from "@/components/CandidatePicker";
 import { createRecord, deleteRecord, updateRecord } from "@/lib/actions/records";
-import { formatDate, parseDate, todayString } from "@/lib/constants";
+import { formatDate, formatDisplayDate, parseDate, todayString } from "@/lib/constants";
 import type { CandidateSortOrder, CookMember, Eaters, MealCategory, MealType } from "@/lib/db";
 import type { RecordWithDetails } from "@/lib/actions/records";
 
@@ -18,6 +18,19 @@ type Props = {
   sortOrder: CandidateSortOrder;
   returnTo?: string;
 };
+
+function memberTone(id: string) {
+  if (id === "both") return "both";
+  if (id === "member_1") return "m1";
+  return "m2";
+}
+
+function weekdayClass(dateStr: string) {
+  const day = parseDate(dateStr).getDay();
+  if (day === 0) return "text-dinner";
+  if (day === 6) return "text-[#4a7ab5]";
+  return "text-ink";
+}
 
 export function RecordForm({
   members,
@@ -42,7 +55,7 @@ export function RecordForm({
     initial?.category ?? defaultCategory ?? "home_cooked"
   );
   const [cookMemberId, setCookMemberId] = useState<CookMember>(
-    initial?.cookMemberId ?? (members[0]?.id as CookMember) ?? "member_1"
+    initial?.cookMemberId ?? "member_1"
   );
   const [eaters, setEaters] = useState<Eaters>(initial?.eaters ?? "both");
   const [candidateId, setCandidateId] = useState(
@@ -51,6 +64,16 @@ export function RecordForm({
   const [candidateName, setCandidateName] = useState(initial?.candidateName ?? "");
   const [memo, setMemo] = useState(initial?.memo ?? "");
   const [savedMessage, setSavedMessage] = useState<string | null>(null);
+
+  const today = todayString();
+  const isToday = date === today;
+  const mealLabel = mealType === "lunch" ? "昼食" : mealType === "dinner" ? "夕食" : "その他";
+  const mealEmoji = mealType === "lunch" ? "☀️" : mealType === "dinner" ? "🌙" : "🍴";
+  const categoryLabel = category === "home_cooked" ? "自炊" : "外食";
+  const cookName =
+    cookMemberId === "both"
+      ? "2人とも"
+      : members.find((m) => m.id === cookMemberId)?.name ?? "";
 
   const save = (continueEntering: boolean) => {
     if (!candidateId) {
@@ -116,165 +139,266 @@ export function RecordForm({
   };
 
   return (
-    <form onSubmit={handleSubmit} className="max-w-xl space-y-8">
-      {error && (
-        <div className="rounded-xl border border-danger/30 bg-danger-light px-4 py-3 text-sm font-medium text-danger">
-          {error}
-        </div>
-      )}
-      {savedMessage && (
-        <div className="rounded-xl border border-secondary/30 bg-secondary-light px-4 py-3 text-sm font-medium text-secondary-dark">
-          {savedMessage}
-        </div>
-      )}
-
-      <div>
-        <label className="label">📅 日付</label>
-        <div className="flex items-center gap-3">
-          <button
-            type="button"
-            className="btn btn-secondary btn-sm shrink-0"
-            onClick={() => shiftDate(-1)}
-            aria-label="前の日"
-          >
-            ←
-          </button>
-          <input
-            type="date"
-            className="input min-w-0 flex-1"
-            value={date}
-            onChange={(e) => {
-              setDate(e.target.value);
-              setSavedMessage(null);
-            }}
-          />
-          <button
-            type="button"
-            className="btn btn-secondary btn-sm shrink-0"
-            onClick={() => shiftDate(1)}
-            aria-label="次の日"
-          >
-            →
-          </button>
-        </div>
-      </div>
-
-      <div>
-        <label className="label">🍳 種別</label>
-        <div className="flex flex-wrap gap-2">
-          {(["home_cooked", "dining_out"] as MealCategory[]).map((c) => (
-            <button
-              key={c}
-              type="button"
-              className={`choice ${category === c ? "choice-on" : ""}`}
-              onClick={() => {
-                if (category !== c) {
-                  setCategory(c);
-                  setCandidateId("");
-                  setCandidateName("");
+    <form onSubmit={handleSubmit} className="space-y-0">
+      <div
+        className={`date-banner ${
+          mealType === "lunch"
+            ? "date-banner-lunch"
+            : mealType === "dinner"
+              ? "date-banner-dinner"
+              : "date-banner-other"
+        }`}
+      >
+        <button
+          type="button"
+          className="date-banner-btn"
+          onClick={() => shiftDate(-1)}
+          aria-label="前の日"
+        >
+          ←
+        </button>
+        <div className="min-w-0 flex-1 text-center">
+          {initial && (
+            <p className="kicker mb-1 justify-center">✏️ 編集中</p>
+          )}
+          <label className="relative mx-auto inline-flex cursor-pointer flex-col items-center">
+            <span className={`date-banner-date ${weekdayClass(date)}`}>
+              {formatDisplayDate(date)}
+            </span>
+            <span className="mt-1 text-sm font-medium text-muted">
+              {mealEmoji} {mealLabel} · {category === "home_cooked" ? "🍳" : "🍽"} {categoryLabel}
+              {category === "home_cooked" && cookName ? ` · ${cookName}` : ""}
+            </span>
+            <input
+              type="date"
+              className="date-banner-input absolute inset-0 cursor-pointer opacity-0"
+              value={date}
+              onClick={(e) => {
+                try {
+                  e.currentTarget.showPicker();
+                } catch {
+                  e.currentTarget.focus();
                 }
               }}
-            >
-              {c === "home_cooked" ? "🍳 自炊" : "🍽 外食"}
-            </button>
-          ))}
-        </div>
-      </div>
-
-      <div>
-        <label className="label">🕐 食事区分</label>
-        <div className="flex flex-wrap gap-2">
-          {(["lunch", "dinner", "other"] as MealType[]).map((t) => (
-            <button
-              key={t}
-              type="button"
-              className={`choice ${mealType === t ? "choice-on" : ""}`}
-              onClick={() => setMealType(t)}
-            >
-              {t === "lunch" ? "☀️ 昼食" : t === "dinner" ? "🌙 夕食" : "🍴 その他"}
-            </button>
-          ))}
-        </div>
-      </div>
-
-      {category === "home_cooked" && (
-        <div>
-          <label className="label">👨‍🍳 作った人</label>
-          <div className="flex flex-wrap gap-2">
-            {members.map((m) => (
+              onChange={(e) => {
+                setDate(e.target.value);
+                setSavedMessage(null);
+              }}
+              aria-label="日付を選ぶ"
+            />
+          </label>
+          <div className="mt-2 flex justify-center gap-2">
+            {!isToday && (
               <button
-                key={m.id}
                 type="button"
-                className={`choice ${cookMemberId === m.id ? "choice-on" : ""}`}
-                onClick={() => setCookMemberId(m.id as CookMember)}
+                className="badge bg-paper-elevated text-primary-dark"
+                onClick={() => {
+                  setDate(today);
+                  setSavedMessage(null);
+                }}
               >
-                {m.name}
+                今日へ
               </button>
-            ))}
-            <button
-              type="button"
-              className={`choice ${cookMemberId === "both" ? "choice-on" : ""}`}
-              onClick={() => setCookMemberId("both")}
-            >
-              2人とも
-            </button>
+            )}
+            {isToday && <span className="badge badge-home">今日</span>}
           </div>
-          <p className="meta mt-2">「2人とも」は調理回数を各0.5回で集計します</p>
         </div>
-      )}
-
-      <div>
-        <label className="label">😋 食べた人</label>
-        <div className="flex flex-wrap gap-2">
-          {members.map((m) => (
-            <button
-              key={m.id}
-              type="button"
-              className={`choice ${eaters === m.id ? "choice-on" : ""}`}
-              onClick={() => setEaters(m.id as Eaters)}
-            >
-              {m.name}
-            </button>
-          ))}
-          <button
-            type="button"
-            className={`choice ${eaters === "both" ? "choice-on" : ""}`}
-            onClick={() => setEaters("both")}
-          >
-            2人とも
-          </button>
-        </div>
+        <button
+          type="button"
+          className="date-banner-btn"
+          onClick={() => shiftDate(1)}
+          aria-label="次の日"
+        >
+          →
+        </button>
       </div>
 
-      <div>
-        <label className="label">📝 内容</label>
-        {candidateName && (
-          <p className="mb-3 rounded-lg bg-primary-light px-3 py-2 font-serif text-base font-medium tracking-wide text-primary-dark">
-            選択中 · {candidateName}
-          </p>
+      <div className="space-y-4 px-4 py-5 sm:px-6">
+        {error && (
+          <div className="rounded-xl border border-danger/30 bg-danger-light px-4 py-3 text-sm font-medium text-danger">
+            {error}
+          </div>
         )}
-        <CandidatePicker
-          key={category}
-          category={category}
-          selectedId={candidateId}
-          initialSortOrder={sortOrder}
-          onSelect={(id, name) => {
-            setCandidateId(id);
-            setCandidateName(name);
-          }}
-        />
+        {savedMessage && (
+          <div className="rounded-xl border border-secondary/30 bg-secondary-light px-4 py-3 text-sm font-medium text-secondary-dark">
+            {savedMessage}
+          </div>
+        )}
+
+        <div className="grid gap-3 sm:grid-cols-2">
+          <div>
+            <p className="label">種別</p>
+            <div className="flex gap-2">
+              <button
+                type="button"
+                className={`choice choice-tile choice-home ${category === "home_cooked" ? "choice-on" : ""}`}
+                onClick={() => {
+                  if (category !== "home_cooked") {
+                    setCategory("home_cooked");
+                    setCandidateId("");
+                    setCandidateName("");
+                  }
+                }}
+              >
+                <span className="choice-tile-icon" aria-hidden="true">
+                  🍳
+                </span>
+                自炊
+              </button>
+              <button
+                type="button"
+                className={`choice choice-tile choice-out ${category === "dining_out" ? "choice-on" : ""}`}
+                onClick={() => {
+                  if (category !== "dining_out") {
+                    setCategory("dining_out");
+                    setCandidateId("");
+                    setCandidateName("");
+                  }
+                }}
+              >
+                <span className="choice-tile-icon" aria-hidden="true">
+                  🍽
+                </span>
+                外食
+              </button>
+            </div>
+          </div>
+
+          <div>
+            <p className="label">食事区分</p>
+            <div className="flex gap-2">
+              {(
+                [
+                  ["lunch", "☀️", "昼食", "choice-lunch"],
+                  ["dinner", "🌙", "夕食", "choice-dinner"],
+                  ["other", "🍴", "その他", "choice-other"],
+                ] as const
+              ).map(([value, emoji, label, tone]) => (
+                <button
+                  key={value}
+                  type="button"
+                  className={`choice choice-tile ${tone} ${mealType === value ? "choice-on" : ""}`}
+                  onClick={() => setMealType(value)}
+                >
+                  <span className="choice-tile-icon" aria-hidden="true">
+                    {emoji}
+                  </span>
+                  {label}
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        <div className={`grid gap-3 ${category === "home_cooked" ? "sm:grid-cols-2" : ""}`}>
+          {category === "home_cooked" && (
+            <div className="form-block form-block-home">
+              <p className="label">👨‍🍳 作った人</p>
+              <div className="flex flex-wrap gap-2">
+                {members.map((m) => (
+                  <button
+                    key={m.id}
+                    type="button"
+                    className={`choice choice-${memberTone(m.id)} ${cookMemberId === m.id ? "choice-on" : ""}`}
+                    onClick={() => setCookMemberId(m.id as CookMember)}
+                  >
+                    {m.name}
+                  </button>
+                ))}
+                <button
+                  type="button"
+                  className={`choice choice-both ${cookMemberId === "both" ? "choice-on" : ""}`}
+                  onClick={() => setCookMemberId("both")}
+                >
+                  2人とも
+                </button>
+              </div>
+              {cookMemberId === "both" && (
+                <p className="meta mt-2">調理回数は各0.5回で集計します</p>
+              )}
+            </div>
+          )}
+
+          <div className={`form-block ${category === "dining_out" ? "form-block-out" : ""}`}>
+            <p className="label">😋 食べた人</p>
+            <div className="flex flex-wrap gap-2">
+              {members.map((m) => (
+                <button
+                  key={m.id}
+                  type="button"
+                  className={`choice choice-${memberTone(m.id)} ${eaters === m.id ? "choice-on" : ""}`}
+                  onClick={() => setEaters(m.id as Eaters)}
+                >
+                  {m.name}
+                </button>
+              ))}
+              <button
+                type="button"
+                className={`choice choice-both ${eaters === "both" ? "choice-on" : ""}`}
+                onClick={() => setEaters("both")}
+              >
+                2人とも
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <div className="form-block form-block-dish">
+          <p className="label">📝 内容</p>
+          {candidateName ? (
+            <div
+              className={`selected-dish mb-3 ${
+                category === "home_cooked" ? "selected-dish-home" : "selected-dish-out"
+              }`}
+            >
+              <span className="text-lg" aria-hidden="true">
+                ✓
+              </span>
+              <p className="min-w-0 flex-1 font-serif text-lg font-semibold tracking-wide">
+                {candidateName}
+              </p>
+              <button
+                type="button"
+                className="btn btn-ghost btn-sm"
+                onClick={() => {
+                  setCandidateId("");
+                  setCandidateName("");
+                }}
+              >
+                変更
+              </button>
+            </div>
+          ) : (
+            <p className="meta mb-3">料理や店を選んでください</p>
+          )}
+          <CandidatePicker
+            key={category}
+            category={category}
+            selectedId={candidateId}
+            initialSortOrder={sortOrder}
+            onSelect={(id, name) => {
+              setCandidateId(id);
+              setCandidateName(name);
+              setError(null);
+            }}
+          />
+        </div>
+
+        <div>
+          <label className="label" htmlFor="record-memo">
+            メモ（任意）
+          </label>
+          <textarea
+            id="record-memo"
+            className="input min-h-[80px]"
+            placeholder="味の感想、お店のメモなど"
+            value={memo}
+            onChange={(e) => setMemo(e.target.value)}
+          />
+        </div>
       </div>
 
-      <div>
-        <label className="label">メモ（任意）</label>
-        <textarea
-          className="input min-h-[88px]"
-          value={memo}
-          onChange={(e) => setMemo(e.target.value)}
-        />
-      </div>
-
-      <div className="flex flex-wrap items-center gap-3 border-t border-line pt-6">
+      <div className="form-actions-bar">
         <button type="submit" className="btn btn-primary" disabled={pending}>
           {initial ? "✓ 更新する" : "✓ 保存する"}
         </button>

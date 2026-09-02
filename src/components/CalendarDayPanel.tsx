@@ -7,6 +7,7 @@ import {
   cookDisplayName,
   formatDisplayDate,
   getRecordAccentColor,
+  getRecordAccentTint,
 } from "@/lib/constants";
 import type { MealType } from "@/lib/db";
 import type { RecordWithDetails } from "@/lib/actions/records";
@@ -84,7 +85,7 @@ export function CalendarDayPanel({ date, records, memberMap, returnTo, onClose }
                 </p>
                 {items.length === 0 ? (
                   <Link
-                    href={`/records/new?date=${date}&mealType=${type}&returnTo=${returnToParam}`}
+                    href={`/?date=${date}&mealType=${type}&returnTo=${returnToParam}`}
                     className="cal-slot-empty flex w-full items-center justify-center gap-2 py-5"
                   >
                     <span className="text-xl leading-none">＋</span>
@@ -94,13 +95,14 @@ export function CalendarDayPanel({ date, records, memberMap, returnTo, onClose }
                   <div className="space-y-2">
                     {items.map((r) => {
                       const accent = getRecordAccentColor(r);
+                      const tint = getRecordAccentTint(r);
                       const cookName = cookDisplayName(r.cookMemberId, memberMap);
                       return (
                         <Link
                           key={r.id}
                           href={`/records/${r.id}/edit?returnTo=${returnToParam}`}
                           className="cal-slot-filled group flex items-start gap-3 px-3 py-3"
-                          style={{ borderLeftColor: accent }}
+                          style={{ borderLeftColor: accent, backgroundColor: tint }}
                         >
                           <div className="min-w-0 flex-1">
                             <p className="font-serif text-base font-semibold tracking-wide group-hover:text-primary">
@@ -124,7 +126,7 @@ export function CalendarDayPanel({ date, records, memberMap, returnTo, onClose }
                       );
                     })}
                     <Link
-                      href={`/records/new?date=${date}&mealType=${type}&returnTo=${returnToParam}`}
+                      href={`/?date=${date}&mealType=${type}&returnTo=${returnToParam}`}
                       className="cal-slot-empty mt-1 flex w-full items-center justify-center gap-1.5 py-2.5 text-xs"
                     >
                       ＋ 追加
@@ -138,7 +140,7 @@ export function CalendarDayPanel({ date, records, memberMap, returnTo, onClose }
 
         <div className="border-t border-line px-5 py-4">
           <Link
-            href={`/records/new?date=${date}&returnTo=${returnToParam}`}
+            href={`/?date=${date}&returnTo=${returnToParam}`}
             className="btn btn-primary w-full"
           >
             ＋ この日に記録を追加

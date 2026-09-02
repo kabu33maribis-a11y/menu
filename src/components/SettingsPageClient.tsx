@@ -18,6 +18,12 @@ type Props = {
   diningCandidates: CandidateWithStats[];
 };
 
+function shortDate(date: string | null): string {
+  if (!date) return "—";
+  const [, m, d] = date.split("-");
+  return m && d ? `${Number(m)}/${Number(d)}` : date;
+}
+
 export function SettingsPageClient({
   members: initialMembers,
   homeCandidates,
@@ -75,34 +81,33 @@ export function SettingsPageClient({
   };
 
   return (
-    <div className="space-y-16">
-      <section>
-        <p className="kicker mb-2">名前</p>
-        <h3 className="section-title mb-8">メンバー</h3>
-        <div className="max-w-xl space-y-8">
+    <div className="settings-compact space-y-4">
+      <section className="card card-compact">
+        <h3 className="settings-section-title">メンバー</h3>
+        <div className="settings-member-grid">
           {members.map((m) => (
             <MemberEditor key={m.id} member={m} onSave={saveMember} disabled={pending} />
           ))}
         </div>
       </section>
 
-      <section className="rule pt-10">
-        <div className="mb-8 flex flex-wrap items-end justify-between gap-4">
-          <div>
-            <p className="kicker mb-2">マスタ</p>
-            <h3 className="section-title">候補</h3>
+      <section className="card card-compact">
+        <div className="settings-toolbar">
+          <div className="settings-toolbar-left">
+            <h3 className="settings-section-title">候補</h3>
+            <span className="settings-count">{candidates.length}件</span>
           </div>
-          <div className="flex gap-6">
+          <div className="segment-group" role="group" aria-label="候補種別">
             <button
               type="button"
-              className={`choice ${tab === "home_cooked" ? "choice-on" : ""}`}
+              className={`segment-btn ${tab === "home_cooked" ? "segment-btn-on" : ""}`}
               onClick={() => setTab("home_cooked")}
             >
               自炊
             </button>
             <button
               type="button"
-              className={`choice ${tab === "dining_out" ? "choice-on" : ""}`}
+              className={`segment-btn ${tab === "dining_out" ? "segment-btn-on" : ""}`}
               onClick={() => setTab("dining_out")}
             >
               外食
@@ -110,47 +115,70 @@ export function SettingsPageClient({
           </div>
         </div>
 
-        <div className="mb-10 grid max-w-xl gap-4 md:grid-cols-[1fr_1fr_auto] md:items-end">
+        <div className="settings-add-row">
           <input
-            className="input"
-            placeholder="名称"
+            className="input input-compact flex-1"
+            placeholder="新規名称"
             value={newName}
             onChange={(e) => setNewName(e.target.value)}
+            onKeyDown={(e) => e.key === "Enter" && addCandidate()}
           />
           <input
-            className="input"
-            placeholder="かな読み（任意）"
+            className="input input-compact settings-add-reading hidden sm:block"
+            placeholder="かな"
             value={newReading}
             onChange={(e) => setNewReading(e.target.value)}
+            onKeyDown={(e) => e.key === "Enter" && addCandidate()}
           />
-          <button type="button" className="btn btn-primary" onClick={addCandidate} disabled={pending}>
+          <button
+            type="button"
+            className="btn btn-primary btn-xs shrink-0"
+            onClick={addCandidate}
+            disabled={pending || !newName.trim()}
+          >
             追加
           </button>
         </div>
 
-        <div className="divide-y divide-line">
-          {candidates.length === 0 && <p className="py-5 text-sm text-muted">候補がありません</p>}
-          {candidates.map((c) => (
-            <CandidateEditor
-              key={c.id}
-              candidate={c}
-              onSave={saveCandidate}
-              onArchive={toggleArchive}
-              onDelete={removeCandidate}
-              disabled={pending}
-              locked={isDiningOutUnknownCandidate(c)}
-            />
-          ))}
+        <div className="data-table-wrap data-table-wrap-compact mt-3">
+          <table className="data-table data-table-compact">
+            <thead>
+              <tr>
+                <th>名称</th>
+                <th className="col-hide-mobile">かな</th>
+                <th className="num">回数</th>
+                <th className="col-hide-mobile">最終</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody>
+              {candidates.length === 0 && (
+                <tr>
+                  <td colSpan={5} className="py-6 text-center text-muted">
+                    候補がありません
+                  </td>
+                </tr>
+              )}
+              {candidates.map((c) => (
+                <CandidateRow
+                  key={c.id}
+                  candidate={c}
+                  onSave={saveCandidate}
+                  onArchive={toggleArchive}
+                  onDelete={removeCandidate}
+                  disabled={pending}
+                  locked={isDiningOutUnknownCandidate(c)}
+                />
+              ))}
+            </tbody>
+          </table>
         </div>
       </section>
 
-      <section className="rule pt-10">
-        <p className="kicker mb-2">データ</p>
-        <h3 className="section-title mb-4">バックアップ</h3>
-        <p className="max-w-xl text-sm leading-relaxed text-muted">
-          データは <span className="text-ink">data/meals.db</span> に保存されています。このファイルをコピーすればバックアップできます。
-        </p>
-      </section>
+      <p className="settings-backup meta">
+        バックアップ: <code className="text-ink">data/meals.db</code> をコピー（ローカル） /
+        Turso 利用時はダッシュボードから
+      </p>
     </div>
   );
 }
@@ -165,15 +193,19 @@ function MemberEditor({
   disabled: boolean;
 }) {
   const [name, setName] = useState(member.name);
+  const label = member.id === "member_1" ? "1" : "2";
   return (
-    <div className="flex flex-wrap items-end gap-4">
-      <div className="flex-1">
-        <label className="label">{member.id === "member_1" ? "メンバー1" : "メンバー2"}</label>
-        <input className="input" value={name} onChange={(e) => setName(e.target.value)} />
-      </div>
+    <div className="settings-member-row">
+      <span className="settings-member-label">M{label}</span>
+      <input
+        className="input input-compact min-w-0 flex-1"
+        value={name}
+        onChange={(e) => setName(e.target.value)}
+        aria-label={`メンバー${label}`}
+      />
       <button
         type="button"
-        className="btn btn-secondary"
+        className="btn btn-secondary btn-xs shrink-0"
         disabled={disabled}
         onClick={() => onSave(member.id, name)}
       >
@@ -183,7 +215,7 @@ function MemberEditor({
   );
 }
 
-function CandidateEditor({
+function CandidateRow({
   candidate,
   onSave,
   onArchive,
@@ -202,58 +234,65 @@ function CandidateEditor({
   const [reading, setReading] = useState(candidate.reading ?? "");
 
   return (
-    <div className="py-6">
-      <div className="grid gap-4 md:grid-cols-2">
+    <tr className={candidate.isArchived ? "data-table-row-archived" : undefined}>
+      <td>
         <input
-          className="input"
+          className="input input-compact"
           value={name}
           onChange={(e) => setName(e.target.value)}
           disabled={locked}
         />
+      </td>
+      <td className="col-hide-mobile">
         <input
-          className="input"
-          placeholder="かな読み"
+          className="input input-compact"
+          placeholder="—"
           value={reading}
           onChange={(e) => setReading(e.target.value)}
           disabled={locked}
         />
-      </div>
-      <p className="meta mt-2">
-        使用 {candidate.usageCount} 回
-        {candidate.lastUsedDate ? ` · 最終 ${candidate.lastUsedDate}` : " · 未使用"}
-        {candidate.isArchived ? " · アーカイブ中" : ""}
-        {locked ? " · 店名を覚えていないとき用（変更・削除できません）" : ""}
-      </p>
-      {!locked && (
-        <div className="mt-3 flex flex-wrap gap-4">
-          <button
-            type="button"
-            className="btn btn-secondary text-xs"
-            disabled={disabled}
-            onClick={() => onSave(candidate.id, name, reading)}
-          >
-            保存
-          </button>
-          <button
-            type="button"
-            className="btn btn-secondary text-xs"
-            disabled={disabled}
-            onClick={() => onArchive(candidate.id, !candidate.isArchived)}
-          >
-            {candidate.isArchived ? "復帰" : "アーカイブ"}
-          </button>
-          {candidate.usageCount === 0 && (
+      </td>
+      <td className="data-table-cell-num">{candidate.usageCount}</td>
+      <td className="data-table-cell-date col-hide-mobile">
+        {shortDate(candidate.lastUsedDate)}
+      </td>
+      <td>
+        {locked ? (
+          <span className="badge badge-out badge-xs">固定</span>
+        ) : (
+          <div className="data-table-actions-compact">
+            {candidate.isArchived ? (
+              <span className="badge badge-other badge-xs">Archive</span>
+            ) : null}
             <button
               type="button"
-              className="btn btn-danger text-xs"
+              className="btn btn-ghost btn-xs"
               disabled={disabled}
-              onClick={() => onDelete(candidate.id)}
+              onClick={() => onSave(candidate.id, name, reading)}
             >
-              削除
+              保存
             </button>
-          )}
-        </div>
-      )}
-    </div>
+            <button
+              type="button"
+              className="btn btn-ghost btn-xs"
+              disabled={disabled}
+              onClick={() => onArchive(candidate.id, !candidate.isArchived)}
+            >
+              {candidate.isArchived ? "復帰" : "Archive"}
+            </button>
+            {candidate.usageCount === 0 && (
+              <button
+                type="button"
+                className="btn btn-ghost btn-xs text-danger"
+                disabled={disabled}
+                onClick={() => onDelete(candidate.id)}
+              >
+                削除
+              </button>
+            )}
+          </div>
+        )}
+      </td>
+    </tr>
   );
 }

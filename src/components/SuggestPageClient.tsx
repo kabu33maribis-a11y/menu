@@ -58,7 +58,7 @@ export function SuggestPageClient({ initialSuggestions, initialStale }: Props) {
                       : "未調理"}
                   </p>
                   <Link
-                    href={`/records/new?category=home_cooked&candidateId=${s.id}&date=${today}&mealType=dinner`}
+                    href={`/?category=home_cooked&candidateId=${s.id}&date=${today}&mealType=dinner`}
                     className="btn btn-secondary mt-4"
                   >
                     この献立で記録
@@ -91,7 +91,7 @@ export function SuggestPageClient({ initialSuggestions, initialStale }: Props) {
                   </p>
                 </div>
                 <Link
-                  href={`/records/new?category=home_cooked&candidateId=${s.id}&date=${today}&mealType=dinner`}
+                  href={`/?category=home_cooked&candidateId=${s.id}&date=${today}&mealType=dinner`}
                   className="btn btn-secondary text-xs"
                 >
                   記録する

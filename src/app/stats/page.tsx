@@ -8,8 +8,11 @@ export default async function StatsPage() {
   const [records, memberMap] = await Promise.all([getRecords(), getMemberMap()]);
 
   return (
-    <div className="space-y-10">
-      <h2 className="page-title">統計</h2>
+    <div className="space-y-6">
+      <div>
+        <p className="kicker mb-2">📊 振り返り</p>
+        <h2 className="page-title">統計</h2>
+      </div>
       <StatsPageClient
         records={records}
         memberMap={memberMap}

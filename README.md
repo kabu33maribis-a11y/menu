@@ -79,6 +79,28 @@ TURSO_AUTH_TOKEN=...
 
 未設定の場合は `data/meals.db` にローカル保存されます。
 
+### 5. ローカルデータを本番へ移行
+
+PC で使っていた `data/meals.db` の内容を Vercel（Turso）へ取り込む手順:
+
+1. Vercel → **Settings → Environment Variables** から  
+   `TURSO_DATABASE_URL` と `TURSO_AUTH_TOKEN` をコピー
+2. プロジェクト直下に `.env.local` を作成:
+
+```
+TURSO_DATABASE_URL=libsql://...
+TURSO_AUTH_TOKEN=...
+```
+
+3. 移行スクリプトを実行:
+
+```bash
+npm run db:migrate-turso
+```
+
+ローカルの members / 候補 / 記録 / 設定が Turso に上書きコピーされます。  
+完了後、デプロイ済みアプリを再読み込みしてください。
+
 ## 技術スタック
 
 - Next.js 15 (App Router)

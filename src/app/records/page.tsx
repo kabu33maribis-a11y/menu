@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { DateInput } from "@/components/DateInput";
 import { RecordCard } from "@/components/RecordCard";
 import { getMemberMap } from "@/lib/actions/members";
 import { getRecords } from "@/lib/actions/records";
@@ -32,7 +33,7 @@ export default async function RecordsPage({ searchParams }: Props) {
           <p className="kicker mb-1">📋 記録</p>
           <h2 className="page-title">記録一覧</h2>
         </div>
-        <Link href="/records/new" className="btn btn-primary">
+        <Link href="/" className="btn btn-primary">
           ＋ 記録を追加
         </Link>
       </div>
@@ -40,11 +41,11 @@ export default async function RecordsPage({ searchParams }: Props) {
       <form method="GET" action="/records" className="card grid gap-5 md:grid-cols-4">
         <div>
           <label className="label">開始日</label>
-          <input type="date" name="start" defaultValue={params.start} className="input" />
+          <DateInput name="start" defaultValue={params.start} />
         </div>
         <div>
           <label className="label">終了日</label>
-          <input type="date" name="end" defaultValue={params.end} className="input" />
+          <DateInput name="end" defaultValue={params.end} />
         </div>
         <div>
           <label className="label">種別</label>
