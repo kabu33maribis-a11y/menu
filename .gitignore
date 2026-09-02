@@ -1,0 +1,10 @@
+node_modules
+.next
+data/*.db
+data/*.db-*
+data/.init.lock
+.env
+.env*.local
+.vercel
+npm-debug.log*
+tsconfig.tsbuildinfo
