@@ -30,24 +30,24 @@ export default async function RecordsPage({ searchParams }: Props) {
     <div className="space-y-6">
       <div className="card flex flex-wrap items-center justify-between gap-4">
         <div>
-          <p className="kicker mb-1">📋 記録</p>
-          <h2 className="page-title">記録一覧</h2>
+          <p className="kicker mb-1">📋 履歴</p>
+          <h2 className="page-title">履歴</h2>
         </div>
         <Link href="/" className="btn btn-primary">
           ＋ 記録を追加
         </Link>
       </div>
 
-      <form method="GET" action="/records" className="card grid gap-5 md:grid-cols-4">
-        <div>
+      <form method="GET" action="/records" className="card grid gap-4 md:grid-cols-4 md:gap-5">
+        <div className="min-w-0">
           <label className="label">開始日</label>
           <DateInput name="start" defaultValue={params.start} />
         </div>
-        <div>
+        <div className="min-w-0">
           <label className="label">終了日</label>
           <DateInput name="end" defaultValue={params.end} />
         </div>
-        <div>
+        <div className="min-w-0">
           <label className="label">種別</label>
           <select name="category" defaultValue={params.category ?? ""} className="input">
             <option value="">すべて</option>
@@ -55,7 +55,7 @@ export default async function RecordsPage({ searchParams }: Props) {
             <option value="dining_out">外食</option>
           </select>
         </div>
-        <div>
+        <div className="min-w-0">
           <label className="label">メンバー</label>
           <select name="member" defaultValue={params.member ?? ""} className="input">
             <option value="">すべて</option>

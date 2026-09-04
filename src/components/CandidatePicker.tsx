@@ -17,6 +17,16 @@ type Props = {
   initialSortOrder: CandidateSortOrder;
 };
 
+function optionLabel(c: CandidateWithStats) {
+  const extra = [
+    `${c.usageCount}回`,
+    c.lastUsedDate ? c.lastUsedDate.slice(5) : null,
+  ]
+    .filter(Boolean)
+    .join(" · ");
+  return extra ? `${c.name}（${extra}）` : c.name;
+}
+
 export function CandidatePicker({
   category,
   selectedId,
@@ -27,26 +37,32 @@ export function CandidatePicker({
   const [sortOrder, setSortOrder] = useState(initialSortOrder);
   const [candidates, setCandidates] = useState<CandidateWithStats[]>([]);
   const [unknownCandidate, setUnknownCandidate] = useState<CandidateWithStats | null>(null);
+  const [knownById, setKnownById] = useState<Record<string, CandidateWithStats>>({});
   const [loaded, setLoaded] = useState(false);
   const [newName, setNewName] = useState("");
   const [newReading, setNewReading] = useState("");
   const [showNewForm, setShowNewForm] = useState(false);
   const [pending, startTransition] = useTransition();
 
-  const chipTone = category === "home_cooked" ? "candidate-chip-home" : "candidate-chip-out";
-
   const load = (q = query) => {
     startTransition(async () => {
       const list = await getCandidates(category, { query: q });
       const unknown = list.find(isDiningOutUnknownCandidate) ?? null;
-      setCandidates(list.filter((c) => !isDiningOutUnknownCandidate(c)));
+      const visible = list.filter((c) => !isDiningOutUnknownCandidate(c));
+      setCandidates(visible);
       if (!q || unknown) setUnknownCandidate(unknown);
+      setKnownById((prev) => {
+        const next = { ...prev };
+        for (const c of list) next[c.id] = c;
+        return next;
+      });
       setLoaded(true);
     });
   };
 
   useEffect(() => {
     setUnknownCandidate(null);
+    setKnownById({});
     load("");
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [category]);
@@ -83,77 +99,34 @@ export function CandidatePicker({
     });
   };
 
+  const handleSelectChange = (id: string) => {
+    if (!id) return;
+    const picked =
+      unknownCandidate?.id === id
+        ? unknownCandidate
+        : candidates.find((c) => c.id === id) ?? knownById[id];
+    if (picked) onSelect(picked.id, picked.name);
+  };
+
+  const dropdownItems = (() => {
+    const items: CandidateWithStats[] = [];
+    const seen = new Set<string>();
+    if (unknownCandidate) {
+      items.push(unknownCandidate);
+      seen.add(unknownCandidate.id);
+    }
+    for (const c of candidates) {
+      items.push(c);
+      seen.add(c.id);
+    }
+    if (selectedId && !seen.has(selectedId) && knownById[selectedId]) {
+      items.unshift(knownById[selectedId]);
+    }
+    return items;
+  })();
+
   return (
     <div className="space-y-3">
-      {category === "dining_out" && unknownCandidate && (
-        <button
-          type="button"
-          onClick={() => onSelect(unknownCandidate.id, unknownCandidate.name)}
-          className={`candidate-chip candidate-chip-unknown candidate-chip-out ${
-            selectedId === unknownCandidate.id ? "candidate-chip-on" : ""
-          }`}
-        >
-          <span className="min-w-0 flex-1">
-            <span className="block font-medium">{unknownCandidate.name}</span>
-            <span className="meta mt-0.5 block font-normal">
-              店名・メニューを覚えていないときに選ぶ
-            </span>
-          </span>
-          <span className="candidate-chip-count shrink-0">
-            {unknownCandidate.usageCount}回
-          </span>
-        </button>
-      )}
-
-      <input
-        className="input"
-        placeholder="候補を検索"
-        value={query}
-        onChange={(e) => setQuery(e.target.value)}
-        onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), load(query))}
-      />
-
-      <div className="flex flex-wrap items-center gap-1.5">
-        {Object.entries(SORT_ORDER_LABELS).map(([value, label]) => (
-          <button
-            key={value}
-            type="button"
-            className={`choice choice-sm ${
-              sortOrder === value
-                ? `choice-on ${category === "home_cooked" ? "choice-home" : "choice-out"}`
-                : ""
-            }`}
-            onClick={() => handleSortChange(value as CandidateSortOrder)}
-          >
-            {label}
-          </button>
-        ))}
-        {pending && <span className="meta ml-1">検索中</span>}
-      </div>
-
-      <div className="candidate-grid">
-        {!loaded && <p className="py-3 text-sm text-muted">読み込み中</p>}
-        {loaded && candidates.length === 0 && (
-          <p className="py-3 text-sm text-muted">候補がありません</p>
-        )}
-        {candidates.map((c) => (
-          <button
-            key={c.id}
-            type="button"
-            onClick={() => onSelect(c.id, c.name)}
-            className={`candidate-chip ${chipTone} ${
-              selectedId === c.id ? "candidate-chip-on" : ""
-            }`}
-          >
-            <span>{c.name}</span>
-            <span className="candidate-chip-count">
-              {c.usageCount}
-              {c.lastUsedDate ? ` · ${c.lastUsedDate.slice(5)}` : ""}
-            </span>
-          </button>
-        ))}
-      </div>
-
       {!showNewForm ? (
         <button type="button" className="btn btn-secondary btn-sm" onClick={() => setShowNewForm(true)}>
           ＋ 新規候補を追加
@@ -182,6 +155,52 @@ export function CandidatePicker({
           </div>
         </div>
       )}
+
+      <input
+        className="input"
+        placeholder="候補を検索"
+        value={query}
+        onChange={(e) => setQuery(e.target.value)}
+        onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), load(query))}
+      />
+
+      <div className="flex flex-wrap items-center gap-1.5">
+        {Object.entries(SORT_ORDER_LABELS).map(([value, label]) => (
+          <button
+            key={value}
+            type="button"
+            className={`choice choice-sm ${
+              sortOrder === value
+                ? `choice-on ${category === "home_cooked" ? "choice-home" : "choice-out"}`
+                : ""
+            }`}
+            onClick={() => handleSortChange(value as CandidateSortOrder)}
+          >
+            {label}
+          </button>
+        ))}
+        {pending && <span className="meta ml-1">検索中</span>}
+      </div>
+
+      <select
+        className="input candidate-select"
+        value={selectedId ?? ""}
+        onChange={(e) => handleSelectChange(e.target.value)}
+        disabled={!loaded}
+        aria-label="候補"
+      >
+        <option value="">
+          {!loaded ? "読み込み中" : "料理や店を選んでください"}
+        </option>
+        {dropdownItems.map((c) => (
+          <option key={c.id} value={c.id}>
+            {optionLabel(c)}
+          </option>
+        ))}
+      </select>
+      {loaded && dropdownItems.length === 0 ? (
+        <p className="text-sm text-muted">候補がありません</p>
+      ) : null}
     </div>
   );
 }

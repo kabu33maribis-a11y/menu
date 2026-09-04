@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { CalendarGrid } from "@/components/CalendarGrid";
+import { CalendarSwipeNav } from "@/components/CalendarSwipeNav";
 import { getMembers, getMemberMap } from "@/lib/actions/members";
 import { getRecords } from "@/lib/actions/records";
 import { getMonthRange } from "@/lib/constants";
@@ -31,40 +32,39 @@ export default async function CalendarPage({ searchParams }: Props) {
     month: "long",
   });
 
+  const prevHref = `/calendar?year=${prev.getFullYear()}&month=${prev.getMonth() + 1}`;
+  const nextHref = `/calendar?year=${next.getFullYear()}&month=${next.getMonth() + 1}`;
+
   return (
-    <div className="space-y-6">
-      <div className="card flex flex-wrap items-center justify-between gap-4">
-        <div>
-          <p className="kicker mb-1">📅 カレンダー</p>
-          <h2 className="page-title">{title}</h2>
-        </div>
-        <div className="flex flex-wrap gap-2">
-          {!isCurrentMonth && (
-            <Link href="/calendar" className="btn btn-primary btn-sm">
-              今月へ
+    <CalendarSwipeNav key={`${year}-${month}`} prevHref={prevHref} nextHref={nextHref}>
+      <div className="space-y-6">
+        <div className="card flex flex-wrap items-center justify-between gap-4">
+          <div>
+            <p className="kicker mb-1">📅 カレンダー</p>
+            <h2 className="page-title">{title}</h2>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            {!isCurrentMonth && (
+              <Link href="/calendar" className="btn btn-primary btn-sm">
+                今月へ
+              </Link>
+            )}
+            <Link href={prevHref} className="btn btn-secondary btn-sm">
+              ← 前月
             </Link>
-          )}
-          <Link
-            href={`/calendar?year=${prev.getFullYear()}&month=${prev.getMonth() + 1}`}
-            className="btn btn-secondary btn-sm"
-          >
-            ← 前月
-          </Link>
-          <Link
-            href={`/calendar?year=${next.getFullYear()}&month=${next.getMonth() + 1}`}
-            className="btn btn-secondary btn-sm"
-          >
-            翌月 →
-          </Link>
+            <Link href={nextHref} className="btn btn-secondary btn-sm">
+              翌月 →
+            </Link>
+          </div>
         </div>
+        <CalendarGrid
+          year={year}
+          month={month}
+          records={records}
+          memberMap={memberMap}
+          members={members}
+        />
       </div>
-      <CalendarGrid
-        year={year}
-        month={month}
-        records={records}
-        memberMap={memberMap}
-        members={members}
-      />
-    </div>
+    </CalendarSwipeNav>
   );
 }

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { createPortal } from "react-dom";
 import Link from "next/link";
 import { CalendarDayPanel } from "@/components/CalendarDayPanel";
 import {
@@ -180,20 +181,23 @@ export function CalendarGrid({ year, month, records, memberMap, members }: Props
           <span className="cal-legend-dot" style={{ backgroundColor: DINING_OUT_COLOR }} />
           外食
         </span>
+        <span className="meta ml-auto sm:hidden">左右フリックで月移動</span>
         <span className="meta ml-auto hidden sm:inline">
-          日付タップで詳細 · 枠タップで追加・編集
+          左右フリックで月移動 · 日付タップで詳細
         </span>
       </div>
 
-      {selectedDate && (
-        <CalendarDayPanel
-          date={selectedDate}
-          records={selectedRecords}
-          memberMap={memberMap}
-          returnTo={returnTo}
-          onClose={() => setSelectedDate(null)}
-        />
-      )}
+      {selectedDate &&
+        createPortal(
+          <CalendarDayPanel
+            date={selectedDate}
+            records={selectedRecords}
+            memberMap={memberMap}
+            returnTo={returnTo}
+            onClose={() => setSelectedDate(null)}
+          />,
+          document.body
+        )}
     </div>
   );
 }
