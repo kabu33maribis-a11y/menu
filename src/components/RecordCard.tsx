@@ -12,6 +12,7 @@ type Props = {
   record: RecordWithDetails;
   memberMap: Record<string, string>;
   compact?: boolean;
+  returnTo?: string;
 };
 
 function mealBadgeClass(mealType: string) {
@@ -24,13 +25,16 @@ function categoryBadgeClass(category: string) {
   return category === "home_cooked" ? "badge-home" : "badge-out";
 }
 
-export function RecordCard({ record, memberMap, compact }: Props) {
+export function RecordCard({ record, memberMap, compact, returnTo }: Props) {
   const cookName = cookDisplayName(record.cookMemberId, memberMap);
   const eaterLabel =
     record.eaters === "both"
       ? "2人とも"
       : memberMap[record.eaters] ?? EATERS_LABELS[record.eaters];
   const accent = getRecordAccentColor(record);
+  const editHref = returnTo
+    ? `/records/${record.id}/edit?returnTo=${encodeURIComponent(returnTo)}`
+    : `/records/${record.id}/edit`;
 
   return (
     <div className="record-card flex items-start justify-between gap-4">
@@ -66,7 +70,7 @@ export function RecordCard({ record, memberMap, compact }: Props) {
           </p>
         )}
       </div>
-      <Link href={`/records/${record.id}/edit`} className="btn btn-secondary btn-sm shrink-0">
+      <Link href={editHref} className="btn btn-secondary btn-sm shrink-0">
         編集
       </Link>
     </div>
