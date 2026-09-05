@@ -36,40 +36,53 @@ export function RecordCard({ record, memberMap, compact, returnTo }: Props) {
     ? `/records/${record.id}/edit?returnTo=${encodeURIComponent(returnTo)}`
     : `/records/${record.id}/edit`;
 
+  const body = (
+    <div className="min-w-0 flex-1 border-l-4 pl-4" style={{ borderLeftColor: accent }}>
+      <div className="mb-2 flex flex-wrap items-center gap-2">
+        {!compact && (
+          <span className="meta text-xs">{formatDisplayDate(record.date)}</span>
+        )}
+        <span className={`badge ${mealBadgeClass(record.mealType)}`}>
+          {record.mealType === "lunch" && "☀️ "}
+          {record.mealType === "dinner" && "🌙 "}
+          {MEAL_TYPE_LABELS[record.mealType]}
+        </span>
+        <span className={`badge ${categoryBadgeClass(record.category)}`}>
+          {record.category === "home_cooked" ? "🍳 自炊" : "🍽 外食"}
+        </span>
+      </div>
+      <p className="font-serif text-lg font-semibold tracking-wide text-ink">
+        {record.candidateName}
+      </p>
+      <p className="mt-1.5 text-sm text-muted">
+        {record.category === "home_cooked" && cookName && (
+          <span>作った人 {cookName} · </span>
+        )}
+        食べた人 {eaterLabel}
+      </p>
+      {record.memo && (
+        <p className="mt-2 rounded-lg bg-paper px-3 py-2 text-sm text-muted">
+          {record.memo}
+        </p>
+      )}
+    </div>
+  );
+
+  if (compact) {
+    return (
+      <Link
+        href={editHref}
+        className="record-card record-card-link"
+        aria-label={`${record.candidateName}を編集`}
+      >
+        {body}
+      </Link>
+    );
+  }
+
   return (
     <div className="record-card flex items-start justify-between gap-4">
-      <div
-        className="min-w-0 flex-1 border-l-4 pl-4"
-        style={{ borderLeftColor: accent }}
-      >
-        <div className="mb-2 flex flex-wrap items-center gap-2">
-          {!compact && (
-            <span className="meta text-xs">{formatDisplayDate(record.date)}</span>
-          )}
-          <span className={`badge ${mealBadgeClass(record.mealType)}`}>
-            {record.mealType === "lunch" && "☀️ "}
-            {record.mealType === "dinner" && "🌙 "}
-            {MEAL_TYPE_LABELS[record.mealType]}
-          </span>
-          <span className={`badge ${categoryBadgeClass(record.category)}`}>
-            {record.category === "home_cooked" ? "🍳 自炊" : "🍽 外食"}
-          </span>
-        </div>
-        <p className="font-serif text-lg font-semibold tracking-wide text-ink">
-          {record.candidateName}
-        </p>
-        <p className="mt-1.5 text-sm text-muted">
-          {record.category === "home_cooked" && cookName && (
-            <span>作った人 {cookName} · </span>
-          )}
-          食べた人 {eaterLabel}
-        </p>
-        {record.memo && (
-          <p className="mt-2 rounded-lg bg-paper px-3 py-2 text-sm text-muted">
-            {record.memo}
-          </p>
-        )}
-      </div>
+      {body}
       <Link href={editHref} className="btn btn-secondary btn-sm shrink-0">
         編集
       </Link>

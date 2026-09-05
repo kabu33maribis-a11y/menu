@@ -1213,6 +1213,19 @@ a {
   box-shadow: var(--shadow-md);
 }
 
+.record-card-link {
+  display: block;
+  color: inherit;
+  text-decoration: none;
+  -webkit-tap-highlight-color: transparent;
+  cursor: pointer;
+}
+
+.record-card-link:active {
+  border-color: color-mix(in srgb, var(--primary) 45%, var(--line));
+  background: color-mix(in srgb, var(--primary) 4%, var(--paper-elevated));
+}
+
 /* Missing day chips */
 .chip {
   display: inline-flex;
