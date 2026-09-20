@@ -114,9 +114,15 @@ export function ShoppingModeView({
 
   return (
     <div className="shopping-view shopping-view-mode">
-      <div className="mb-4 flex items-baseline justify-between gap-3">
-        <p className="kicker">今回の買い物</p>
-        <p className="meta">
+      <div className="mb-4 flex items-center justify-between gap-3">
+        <button
+          type="button"
+          className="btn btn-ghost btn-sm shopping-back-btn"
+          onClick={onGoSelect}
+        >
+          ← リストに戻る
+        </button>
+        <p className="meta shrink-0">
           {board.purchasedCount} / {board.selectedCount}
         </p>
       </div>
@@ -205,14 +211,19 @@ export function ShoppingModeView({
       </div>
 
       <div className="shopping-complete-bar">
-        <button
-          type="button"
-          className="btn btn-success w-full"
-          onClick={finish}
-          disabled={pending}
-        >
-          買い物完了
-        </button>
+        <div className="shopping-complete-bar-inner">
+          <button type="button" className="btn btn-secondary" onClick={onGoSelect}>
+            戻る
+          </button>
+          <button
+            type="button"
+            className="btn btn-success flex-1"
+            onClick={finish}
+            disabled={pending}
+          >
+            買い物完了
+          </button>
+        </div>
       </div>
     </div>
   );

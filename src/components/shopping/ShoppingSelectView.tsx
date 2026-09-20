@@ -183,7 +183,7 @@ export function ShoppingSelectView({
           onClick={onStartShopping}
           disabled={board.selectedCount === 0}
         >
-          買い物を開始
+          {board.purchasedCount > 0 ? "買い物に戻る" : "買い物を開始"}
           {board.selectedCount > 0 ? `（${board.selectedCount}）` : ""}
         </button>
       </div>
