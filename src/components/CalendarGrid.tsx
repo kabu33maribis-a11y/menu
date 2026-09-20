@@ -6,11 +6,9 @@ import Link from "next/link";
 import { CalendarDayPanel } from "@/components/CalendarDayPanel";
 import {
   cookDisplayName,
-  DINING_OUT_COLOR,
   formatDate,
   getRecordAccentColor,
   getRecordAccentTint,
-  MEMBER_COLORS,
   todayString,
 } from "@/lib/constants";
 import type { MealType } from "@/lib/db";
@@ -21,7 +19,7 @@ type Props = {
   month: number;
   records: RecordWithDetails[];
   memberMap: Record<string, string>;
-  members: { id: string; name: string }[];
+  returnTo: string;
 };
 
 const WEEKDAYS = [
@@ -39,8 +37,7 @@ const SLOTS: { type: MealType; label: string }[] = [
   { type: "dinner", label: "夕" },
 ];
 
-export function CalendarGrid({ year, month, records, memberMap, members }: Props) {
-  const returnTo = `/calendar?year=${year}&month=${month + 1}`;
+export function CalendarGrid({ year, month, records, memberMap, returnTo }: Props) {
   const returnToParam = encodeURIComponent(returnTo);
   const today = todayString();
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
@@ -168,23 +165,6 @@ export function CalendarGrid({ year, month, records, memberMap, members }: Props
             );
           })}
         </div>
-      </div>
-
-      <div className="mt-5 flex flex-wrap items-center gap-x-4 gap-y-2 rounded-xl border border-line bg-paper-elevated px-4 py-3 shadow-sm">
-        {members.map((m) => (
-          <span key={m.id} className="flex items-center gap-1.5 text-xs font-medium text-muted">
-            <span className="cal-legend-dot" style={{ backgroundColor: MEMBER_COLORS[m.id] }} />
-            {m.name}
-          </span>
-        ))}
-        <span className="flex items-center gap-1.5 text-xs font-medium text-muted">
-          <span className="cal-legend-dot" style={{ backgroundColor: DINING_OUT_COLOR }} />
-          外食
-        </span>
-        <span className="meta ml-auto sm:hidden">左右フリックで月移動</span>
-        <span className="meta ml-auto hidden sm:inline">
-          左右フリックで月移動 · 日付タップで詳細
-        </span>
       </div>
 
       {selectedDate &&

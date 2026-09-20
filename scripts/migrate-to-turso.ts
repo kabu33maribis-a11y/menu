@@ -10,7 +10,17 @@ import fs from "fs";
 import path from "path";
 import { createClient } from "@libsql/client";
 
-const TABLES = ["members", "content_candidates", "meal_records", "app_settings"] as const;
+const TABLES = [
+  "members",
+  "content_candidates",
+  "meal_records",
+  "app_settings",
+  "shopping_categories",
+  "shopping_ingredients",
+  "shopping_items",
+  "purchase_histories",
+  "purchase_history_items",
+] as const;
 
 function loadEnvLocal() {
   const envPath = path.join(process.cwd(), ".env.local");

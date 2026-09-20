@@ -44,9 +44,55 @@ CREATE TABLE IF NOT EXISTS app_settings (
   value TEXT NOT NULL
 );
 
+CREATE TABLE IF NOT EXISTS shopping_categories (
+  id TEXT PRIMARY KEY,
+  name TEXT NOT NULL,
+  sort_order INTEGER NOT NULL DEFAULT 0,
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS shopping_ingredients (
+  id TEXT PRIMARY KEY,
+  category_id TEXT NOT NULL REFERENCES shopping_categories(id) ON DELETE CASCADE,
+  name TEXT NOT NULL,
+  sort_order INTEGER NOT NULL DEFAULT 0,
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS shopping_items (
+  id TEXT PRIMARY KEY,
+  ingredient_id TEXT REFERENCES shopping_ingredients(id) ON DELETE CASCADE,
+  category_id TEXT NOT NULL REFERENCES shopping_categories(id) ON DELETE CASCADE,
+  temp_name TEXT,
+  is_purchased INTEGER NOT NULL DEFAULT 0,
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS purchase_histories (
+  id TEXT PRIMARY KEY,
+  purchased_at TEXT NOT NULL,
+  created_at TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS purchase_history_items (
+  id TEXT PRIMARY KEY,
+  history_id TEXT NOT NULL REFERENCES purchase_histories(id) ON DELETE CASCADE,
+  category_name TEXT NOT NULL,
+  ingredient_name TEXT NOT NULL,
+  category_sort_order INTEGER NOT NULL DEFAULT 0,
+  item_sort_order INTEGER NOT NULL DEFAULT 0
+);
+
 CREATE INDEX IF NOT EXISTS idx_meal_records_date ON meal_records(date);
 CREATE INDEX IF NOT EXISTS idx_meal_records_candidate ON meal_records(candidate_id);
 CREATE INDEX IF NOT EXISTS idx_content_candidates_category ON content_candidates(category);
+CREATE INDEX IF NOT EXISTS idx_shopping_ingredients_category ON shopping_ingredients(category_id);
+CREATE INDEX IF NOT EXISTS idx_shopping_items_ingredient ON shopping_items(ingredient_id);
+CREATE INDEX IF NOT EXISTS idx_shopping_items_category ON shopping_items(category_id);
+CREATE INDEX IF NOT EXISTS idx_purchase_history_items_history ON purchase_history_items(history_id);
 `;
 
 const lockPath = () => path.join(getDataDir(), ".init.lock");
@@ -125,6 +171,45 @@ async function ensureDiningOutUnknownCandidate(now: string) {
   );
 }
 
+const DEFAULT_SHOPPING_CATEGORIES = [
+  "野菜",
+  "肉・魚",
+  "乳製品",
+  "卵",
+  "調味料",
+  "冷凍食品",
+  "飲料",
+  "その他",
+];
+
+async function seedShoppingCategories(now: string) {
+  const seeded = await queryOne<{ value: string }>(
+    "SELECT value FROM app_settings WHERE key = ?",
+    ["shopping_seeded"]
+  );
+  if (seeded?.value === "true") return;
+
+  const existing = await queryOne<{ cnt: number }>(
+    "SELECT COUNT(*) as cnt FROM shopping_categories"
+  );
+  if (!existing || existing.cnt === 0) {
+    for (let i = 0; i < DEFAULT_SHOPPING_CATEGORIES.length; i++) {
+      const id = `shop_cat_${i + 1}`;
+      await execute(
+        `INSERT OR IGNORE INTO shopping_categories
+         (id, name, sort_order, created_at, updated_at)
+         VALUES (?, ?, ?, ?, ?)`,
+        [id, DEFAULT_SHOPPING_CATEGORIES[i], i, now, now]
+      );
+    }
+  }
+
+  await execute("INSERT OR IGNORE INTO app_settings (key, value) VALUES (?, ?)", [
+    "shopping_seeded",
+    "true",
+  ]);
+}
+
 async function seedDatabase(now: string) {
   await execute(
     "INSERT OR IGNORE INTO members (id, name, created_at, updated_at) VALUES (?, ?, ?, ?)",
@@ -143,6 +228,7 @@ async function seedDatabase(now: string) {
     "true",
   ]);
   await ensureDiningOutUnknownCandidate(now);
+  await seedShoppingCategories(now);
 }
 
 async function initializeDatabaseCore() {

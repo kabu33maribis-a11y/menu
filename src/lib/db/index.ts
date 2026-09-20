@@ -34,5 +34,54 @@ export type MealRecord = {
   updatedAt: string;
 };
 
+/** 食材カテゴリ（野菜・肉など） */
+export type ShoppingCategory = {
+  id: string;
+  name: string;
+  sortOrder: number;
+  createdAt: string;
+  updatedAt: string;
+};
+
+/** 定番食材マスタ（今回の購入状態は含まない） */
+export type ShoppingIngredient = {
+  id: string;
+  categoryId: string;
+  name: string;
+  sortOrder: number;
+  createdAt: string;
+  updatedAt: string;
+};
+
+/**
+ * 今回の買い物リスト行。
+ * ingredientId あり＝定番から選択 / tempName あり＝一時追加。
+ * 将来のセッション分離用にテーブル名は shopping_items のまま拡張可能。
+ */
+export type ShoppingItem = {
+  id: string;
+  ingredientId: string | null;
+  categoryId: string;
+  tempName: string | null;
+  isPurchased: boolean;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type PurchaseHistory = {
+  id: string;
+  purchasedAt: string;
+  createdAt: string;
+};
+
+export type PurchaseHistoryItem = {
+  id: string;
+  historyId: string;
+  categoryName: string;
+  ingredientName: string;
+  categorySortOrder: number;
+  itemSortOrder: number;
+};
+
 export { getClient, getDbPath, getDbUrl, isRemoteDb, queryAll, queryOne, execute } from "./client";
 export { ensureDatabase, initializeDatabase } from "./init";

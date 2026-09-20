@@ -7,7 +7,7 @@ const mainLinks = [
   { href: "/", label: "ホーム", icon: "🏠" },
   { href: "/calendar", label: "カレンダー", icon: "📅" },
   { href: "/records", label: "履歴", icon: "📋" },
-  { href: "/stats", label: "統計", icon: "📊" },
+  { href: "/shopping", label: "買い物", icon: "🛒" },
   { href: "/settings", label: "設定", icon: "⚙️" },
 ];
 

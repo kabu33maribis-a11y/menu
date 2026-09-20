@@ -1,19 +1,37 @@
+import { cookies } from "next/headers";
 import Link from "next/link";
 import { CalendarGrid } from "@/components/CalendarGrid";
+import { CalendarLegend } from "@/components/CalendarLegend";
+import { CalendarList } from "@/components/CalendarList";
 import { CalendarSwipeNav } from "@/components/CalendarSwipeNav";
+import { CalendarViewToggle } from "@/components/CalendarViewToggle";
 import { getMembers, getMemberMap } from "@/lib/actions/members";
 import { getRecords } from "@/lib/actions/records";
 import { getMonthRange } from "@/lib/constants";
 
+type View = "grid" | "list";
+
 type Props = {
-  searchParams: Promise<{ year?: string; month?: string }>;
+  searchParams: Promise<{ year?: string; month?: string; view?: string }>;
 };
+
+function resolveView(param: string | undefined, cookie: string | undefined): View {
+  if (param === "list" || param === "grid") return param;
+  if (cookie === "list") return "list";
+  return "grid";
+}
+
+function calendarHref(year: number, month: number, view: View) {
+  return `/calendar?year=${year}&month=${month}&view=${view}`;
+}
 
 export default async function CalendarPage({ searchParams }: Props) {
   const params = await searchParams;
+  const cookieStore = await cookies();
   const now = new Date();
   const year = params.year ? Number(params.year) : now.getFullYear();
   const month = params.month ? Number(params.month) - 1 : now.getMonth();
+  const view = resolveView(params.view, cookieStore.get("cal-view")?.value);
 
   const { start, end } = getMonthRange(new Date(year, month, 1));
   const [records, memberMap, members] = await Promise.all([
@@ -22,8 +40,7 @@ export default async function CalendarPage({ searchParams }: Props) {
     getMembers(),
   ]);
 
-  const isCurrentMonth =
-    year === now.getFullYear() && month === now.getMonth();
+  const isCurrentMonth = year === now.getFullYear() && month === now.getMonth();
 
   const prev = new Date(year, month - 1, 1);
   const next = new Date(year, month + 1, 1);
@@ -32,8 +49,10 @@ export default async function CalendarPage({ searchParams }: Props) {
     month: "long",
   });
 
-  const prevHref = `/calendar?year=${prev.getFullYear()}&month=${prev.getMonth() + 1}`;
-  const nextHref = `/calendar?year=${next.getFullYear()}&month=${next.getMonth() + 1}`;
+  const prevHref = calendarHref(prev.getFullYear(), prev.getMonth() + 1, view);
+  const nextHref = calendarHref(next.getFullYear(), next.getMonth() + 1, view);
+  const thisMonthHref = `/calendar?view=${view}`;
+  const returnTo = calendarHref(year, month + 1, view);
 
   return (
     <CalendarSwipeNav key={`${year}-${month}`} prevHref={prevHref} nextHref={nextHref}>
@@ -43,9 +62,10 @@ export default async function CalendarPage({ searchParams }: Props) {
             <p className="kicker mb-1">📅 カレンダー</p>
             <h2 className="page-title">{title}</h2>
           </div>
-          <div className="flex flex-wrap gap-2">
+          <div className="flex flex-wrap items-center gap-2">
+            <CalendarViewToggle year={year} month={month + 1} view={view} />
             {!isCurrentMonth && (
-              <Link href="/calendar" className="btn btn-primary btn-sm">
+              <Link href={thisMonthHref} className="btn btn-primary btn-sm">
                 今月へ
               </Link>
             )}
@@ -57,13 +77,24 @@ export default async function CalendarPage({ searchParams }: Props) {
             </Link>
           </div>
         </div>
-        <CalendarGrid
-          year={year}
-          month={month}
-          records={records}
-          memberMap={memberMap}
-          members={members}
-        />
+        {view === "list" ? (
+          <CalendarList
+            year={year}
+            month={month}
+            records={records}
+            memberMap={memberMap}
+            returnTo={returnTo}
+          />
+        ) : (
+          <CalendarGrid
+            year={year}
+            month={month}
+            records={records}
+            memberMap={memberMap}
+            returnTo={returnTo}
+          />
+        )}
+        <CalendarLegend members={members} />
       </div>
     </CalendarSwipeNav>
   );
