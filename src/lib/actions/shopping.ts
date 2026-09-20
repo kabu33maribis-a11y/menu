@@ -276,28 +276,48 @@ export async function reorderIngredient(id: string, direction: "up" | "down"): P
   revalidateShopping();
 }
 
-export async function toggleShoppingSelection(ingredientId: string): Promise<void> {
+/** Hot path: no revalidate — client keeps optimistic state. */
+export async function setShoppingSelection(
+  ingredientId: string,
+  selected: boolean,
+  itemId?: string
+): Promise<{ shoppingItemId: string | null }> {
   await ensureDatabase();
   const existing = await queryOne("SELECT id FROM shopping_items WHERE ingredient_id = ?", [
     ingredientId,
   ]);
+
+  if (!selected) {
+    if (existing) {
+      await execute("DELETE FROM shopping_items WHERE id = ?", [existing.id as string]);
+    }
+    return { shoppingItemId: null };
+  }
+
   if (existing) {
-    await execute("DELETE FROM shopping_items WHERE id = ?", [existing.id as string]);
-    revalidateShopping();
-    return;
+    return { shoppingItemId: existing.id as string };
   }
 
   const ingRow = await queryOne("SELECT * FROM shopping_ingredients WHERE id = ?", [ingredientId]);
   if (!ingRow) throw new Error("食材が見つかりません");
   const ingredient = rowToIngredient(ingRow);
   const now = nowIso();
+  const id = itemId ?? uuidv4();
   await execute(
     `INSERT INTO shopping_items
      (id, ingredient_id, category_id, temp_name, is_purchased, created_at, updated_at)
      VALUES (?, ?, ?, NULL, 0, ?, ?)`,
-    [uuidv4(), ingredient.id, ingredient.categoryId, now, now]
+    [id, ingredient.id, ingredient.categoryId, now, now]
   );
-  revalidateShopping();
+  return { shoppingItemId: id };
+}
+
+export async function toggleShoppingSelection(ingredientId: string): Promise<void> {
+  await ensureDatabase();
+  const existing = await queryOne("SELECT id FROM shopping_items WHERE ingredient_id = ?", [
+    ingredientId,
+  ]);
+  await setShoppingSelection(ingredientId, !existing);
 }
 
 export async function addTemporaryItem(categoryId: string, name: string): Promise<ShoppingItem> {
@@ -316,7 +336,6 @@ export async function addTemporaryItem(categoryId: string, name: string): Promis
      VALUES (?, NULL, ?, ?, 0, ?, ?)`,
     [id, categoryId, trimmed, now, now]
   );
-  revalidateShopping();
   return {
     id,
     ingredientId: null,
@@ -331,21 +350,23 @@ export async function addTemporaryItem(categoryId: string, name: string): Promis
 export async function removeShoppingItem(itemId: string): Promise<void> {
   await ensureDatabase();
   await execute("DELETE FROM shopping_items WHERE id = ?", [itemId]);
-  revalidateShopping();
+}
+
+/** Hot path: no revalidate — client keeps optimistic state. */
+export async function setPurchased(itemId: string, purchased: boolean): Promise<void> {
+  await ensureDatabase();
+  await execute("UPDATE shopping_items SET is_purchased = ?, updated_at = ? WHERE id = ?", [
+    purchased ? 1 : 0,
+    nowIso(),
+    itemId,
+  ]);
 }
 
 export async function togglePurchased(itemId: string): Promise<void> {
   await ensureDatabase();
   const row = await queryOne("SELECT * FROM shopping_items WHERE id = ?", [itemId]);
   if (!row) throw new Error("買い物アイテムが見つかりません");
-  const item = rowToItem(row);
-  const now = nowIso();
-  await execute("UPDATE shopping_items SET is_purchased = ?, updated_at = ? WHERE id = ?", [
-    item.isPurchased ? 0 : 1,
-    now,
-    itemId,
-  ]);
-  revalidateShopping();
+  await setPurchased(itemId, !rowToItem(row).isPurchased);
 }
 
 export async function completeShopping(): Promise<{ historyId: string | null; itemCount: number }> {

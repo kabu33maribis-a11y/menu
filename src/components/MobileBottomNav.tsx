@@ -26,11 +26,11 @@ export function MobileBottomNav() {
               key={link.href}
               href={link.href}
               className={`mobile-nav-item ${active ? "mobile-nav-item-active" : ""}`}
+              aria-label={link.label}
             >
               <span className="mobile-nav-icon" aria-hidden="true">
                 {link.icon}
               </span>
-              <span className="mobile-nav-label">{link.label}</span>
             </Link>
           );
         })}

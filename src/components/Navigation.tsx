@@ -16,7 +16,7 @@ export function Navigation() {
   const pathname = usePathname();
 
   return (
-    <nav className="mb-8 hidden flex-wrap gap-2 md:flex" aria-label="デスクトップメニュー">
+    <nav className="mb-6 hidden flex-wrap gap-1.5 md:flex" aria-label="デスクトップメニュー">
       {links.map((link) => {
         const active =
           pathname === link.href ||
@@ -26,9 +26,10 @@ export function Navigation() {
             key={link.href}
             href={link.href}
             className={`nav-link ${active ? "nav-link-on" : ""}`}
+            aria-label={link.label}
+            title={link.label}
           >
             <span aria-hidden="true">{link.icon}</span>
-            {link.label}
           </Link>
         );
       })}

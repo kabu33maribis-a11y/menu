@@ -1,10 +1,16 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import {
+  useRef,
+  useState,
+  useTransition,
+  type Dispatch,
+  type SetStateAction,
+} from "react";
 import {
   addTemporaryItem,
   completeShopping,
-  togglePurchased,
+  setPurchased,
   type ShoppingBoard,
 } from "@/lib/actions/shopping";
 import { CategorySection } from "./CategorySection";
@@ -12,25 +18,61 @@ import { ShoppingItemRow } from "./ShoppingItemRow";
 
 type Props = {
   board: ShoppingBoard;
-  onBoardChange: (board: ShoppingBoard) => void;
+  onBoardChange: Dispatch<SetStateAction<ShoppingBoard>>;
   onGoSelect: () => void;
-  onRefresh: () => void;
   onCompleted: () => void;
 };
+
+function countSelected(board: ShoppingBoard): number {
+  let n = 0;
+  for (const cat of board.categories) {
+    for (const ing of cat.ingredients) {
+      if (ing.isSelected) n++;
+    }
+    n += cat.temporaryItems.length;
+  }
+  return n;
+}
+
+function countPurchased(board: ShoppingBoard): number {
+  let n = 0;
+  for (const cat of board.categories) {
+    for (const ing of cat.ingredients) {
+      if (ing.isSelected && ing.isPurchased) n++;
+    }
+    for (const item of cat.temporaryItems) {
+      if (item.isPurchased) n++;
+    }
+  }
+  return n;
+}
+
+function withCounts(board: ShoppingBoard): ShoppingBoard {
+  return {
+    ...board,
+    selectedCount: countSelected(board),
+    purchasedCount: countPurchased(board),
+  };
+}
 
 export function ShoppingModeView({
   board,
   onBoardChange,
   onGoSelect,
-  onRefresh,
   onCompleted,
 }: Props) {
-  const [pending, startTransition] = useTransition();
+  const boardRef = useRef(board);
+  boardRef.current = board;
+  const [formPending, startFormTransition] = useTransition();
   const [showTempForm, setShowTempForm] = useState(false);
   const [tempName, setTempName] = useState("");
-  const [tempCategoryId, setTempCategoryId] = useState(
-    board.categories[0]?.id ?? ""
-  );
+  const [tempCategoryId, setTempCategoryId] = useState(board.categories[0]?.id ?? "");
+
+  const applyBoard = (next: ShoppingBoard) => {
+    const counted = withCounts(next);
+    boardRef.current = counted;
+    onBoardChange(counted);
+  };
 
   const selectedCategories = board.categories
     .map((cat) => ({
@@ -40,50 +82,74 @@ export function ShoppingModeView({
     .filter((cat) => cat.ingredients.length > 0 || cat.temporaryItems.length > 0);
 
   const toggleItem = (itemId: string) => {
-    onBoardChange({
-      ...board,
-      categories: board.categories.map((cat) => ({
+    const prev = boardRef.current;
+    const currentPurchased =
+      prev.categories.some((cat) =>
+        cat.ingredients.some(
+          (ing) => ing.shoppingItemId === itemId && ing.isPurchased
+        )
+      ) ||
+      prev.categories.some((cat) =>
+        cat.temporaryItems.some((item) => item.id === itemId && item.isPurchased)
+      );
+    const nextPurchased = !currentPurchased;
+
+    applyBoard({
+      ...prev,
+      categories: prev.categories.map((cat) => ({
         ...cat,
         ingredients: cat.ingredients.map((ing) =>
           ing.shoppingItemId === itemId
-            ? { ...ing, isPurchased: !ing.isPurchased }
+            ? { ...ing, isPurchased: nextPurchased }
             : ing
         ),
         temporaryItems: cat.temporaryItems.map((item) =>
-          item.id === itemId ? { ...item, isPurchased: !item.isPurchased } : item
+          item.id === itemId ? { ...item, isPurchased: nextPurchased } : item
         ),
       })),
-      purchasedCount: (() => {
-        let count = 0;
-        for (const cat of board.categories) {
-          for (const ing of cat.ingredients) {
-            if (!ing.isSelected) continue;
-            const purchased =
-              ing.shoppingItemId === itemId ? !ing.isPurchased : ing.isPurchased;
-            if (purchased) count++;
-          }
-          for (const item of cat.temporaryItems) {
-            const purchased = item.id === itemId ? !item.isPurchased : item.isPurchased;
-            if (purchased) count++;
-          }
-        }
-        return count;
-      })(),
     });
 
-    startTransition(async () => {
-      await togglePurchased(itemId);
-      onRefresh();
+    void setPurchased(itemId, nextPurchased).catch(() => {
+      const latest = boardRef.current;
+      applyBoard({
+        ...latest,
+        categories: latest.categories.map((cat) => ({
+          ...cat,
+          ingredients: cat.ingredients.map((ing) =>
+            ing.shoppingItemId === itemId
+              ? { ...ing, isPurchased: !nextPurchased }
+              : ing
+          ),
+          temporaryItems: cat.temporaryItems.map((item) =>
+            item.id === itemId ? { ...item, isPurchased: !nextPurchased } : item
+          ),
+        })),
+      });
     });
   };
 
   const addTemp = () => {
     if (!tempName.trim() || !tempCategoryId) return;
-    startTransition(async () => {
-      await addTemporaryItem(tempCategoryId, tempName);
-      setTempName("");
-      setShowTempForm(false);
-      onRefresh();
+    const name = tempName.trim();
+    const categoryId = tempCategoryId;
+    setTempName("");
+    setShowTempForm(false);
+
+    startFormTransition(async () => {
+      try {
+        const item = await addTemporaryItem(categoryId, name);
+        const prev = boardRef.current;
+        applyBoard({
+          ...prev,
+          categories: prev.categories.map((cat) =>
+            cat.id === categoryId
+              ? { ...cat, temporaryItems: [...cat.temporaryItems, item] }
+              : cat
+          ),
+        });
+      } catch (err) {
+        alert(err instanceof Error ? err.message : "追加に失敗しました");
+      }
     });
   };
 
@@ -94,7 +160,7 @@ export function ShoppingModeView({
         : "購入済みのものがありません。今回のリストをリセットしますか？";
     if (!confirm(msg)) return;
 
-    startTransition(async () => {
+    startFormTransition(async () => {
       await completeShopping();
       onCompleted();
     });
@@ -139,7 +205,7 @@ export function ShoppingModeView({
                 onToggle={() => {
                   if (ing.shoppingItemId) toggleItem(ing.shoppingItemId);
                 }}
-                disabled={pending || !ing.shoppingItemId}
+                disabled={!ing.shoppingItemId}
                 mode="shop"
               />
             ))}
@@ -151,7 +217,6 @@ export function ShoppingModeView({
                 purchased={item.isPurchased}
                 temporary
                 onToggle={() => toggleItem(item.id)}
-                disabled={pending}
                 mode="shop"
               />
             ))}
@@ -186,7 +251,7 @@ export function ShoppingModeView({
                 type="button"
                 className="btn btn-primary flex-1"
                 onClick={addTemp}
-                disabled={pending || !tempName.trim()}
+                disabled={formPending || !tempName.trim()}
               >
                 追加
               </button>
@@ -219,7 +284,7 @@ export function ShoppingModeView({
             type="button"
             className="btn btn-success flex-1"
             onClick={finish}
-            disabled={pending}
+            disabled={formPending}
           >
             買い物完了
           </button>

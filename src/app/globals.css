@@ -903,12 +903,12 @@ select.input,
 .nav-link {
   display: inline-flex;
   align-items: center;
-  gap: 0.35rem;
-  font-size: 0.8125rem;
-  font-weight: 500;
-  letter-spacing: 0.04em;
+  justify-content: center;
+  width: 2.5rem;
+  height: 2.5rem;
+  font-size: 1.125rem;
   color: var(--muted);
-  padding: 0.5rem 1rem;
+  padding: 0;
   border-radius: var(--radius-full);
   border: 2px solid transparent;
   transition: all 0.15s ease;
@@ -1000,33 +1000,6 @@ select.input,
   height: 100%;
   border-radius: var(--radius-full);
   transition: width 0.35s ease;
-}
-
-/* Header */
-.app-header {
-  background: linear-gradient(135deg, var(--primary-light) 0%, var(--paper-elevated) 60%);
-  border: 1px solid color-mix(in srgb, var(--primary) 15%, var(--line));
-  border-radius: var(--radius-lg);
-  padding: 1.25rem 1.5rem;
-  box-shadow: var(--shadow-sm);
-}
-
-.app-logo {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.6rem;
-}
-
-.app-logo-icon {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 2.5rem;
-  height: 2.5rem;
-  font-size: 1.25rem;
-  background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%);
-  border-radius: var(--radius-md);
-  box-shadow: 0 2px 8px rgba(224, 122, 74, 0.35);
 }
 
 a {
@@ -1417,17 +1390,12 @@ a {
 
 .mobile-nav-item {
   display: flex;
-  flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 0.15rem;
-  min-height: 3rem;
-  padding: 0.35rem 0.25rem;
+  min-height: 2.75rem;
+  padding: 0.35rem;
   border-radius: var(--radius-md);
   color: var(--muted);
-  font-size: 0.625rem;
-  font-weight: 600;
-  letter-spacing: 0.02em;
   transition: color 0.15s ease, background 0.15s ease;
   -webkit-tap-highlight-color: transparent;
 }
@@ -1438,12 +1406,8 @@ a {
 }
 
 .mobile-nav-icon {
-  font-size: 1.25rem;
+  font-size: 1.5rem;
   line-height: 1;
-}
-
-.mobile-nav-label {
-  line-height: 1.2;
 }
 
 .mobile-nav-fab {
@@ -1474,17 +1438,6 @@ a {
 
 /* Mobile-first tweaks */
 @media (max-width: 767px) {
-  .app-header {
-    padding: 0.875rem 1rem;
-    margin-bottom: 0.75rem;
-  }
-
-  .app-logo-icon {
-    width: 2.25rem;
-    height: 2.25rem;
-    font-size: 1.125rem;
-  }
-
   .page-title {
     font-size: 1.375rem;
   }

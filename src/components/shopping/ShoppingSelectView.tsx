@@ -1,10 +1,16 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import {
+  useRef,
+  useState,
+  useTransition,
+  type Dispatch,
+  type SetStateAction,
+} from "react";
 import {
   addTemporaryItem,
   removeShoppingItem,
-  toggleShoppingSelection,
+  setShoppingSelection,
   type ShoppingBoard,
 } from "@/lib/actions/shopping";
 import { CategorySection } from "./CategorySection";
@@ -12,62 +18,138 @@ import { ShoppingItemRow } from "./ShoppingItemRow";
 
 type Props = {
   board: ShoppingBoard;
-  onBoardChange: (board: ShoppingBoard) => void;
+  onBoardChange: Dispatch<SetStateAction<ShoppingBoard>>;
   onStartShopping: () => void;
-  onRefresh: () => void;
 };
 
-export function ShoppingSelectView({
-  board,
-  onBoardChange,
-  onStartShopping,
-  onRefresh,
-}: Props) {
-  const [pending, startTransition] = useTransition();
+function countSelected(board: ShoppingBoard): number {
+  let n = 0;
+  for (const cat of board.categories) {
+    for (const ing of cat.ingredients) {
+      if (ing.isSelected) n++;
+    }
+    n += cat.temporaryItems.length;
+  }
+  return n;
+}
+
+function countPurchased(board: ShoppingBoard): number {
+  let n = 0;
+  for (const cat of board.categories) {
+    for (const ing of cat.ingredients) {
+      if (ing.isSelected && ing.isPurchased) n++;
+    }
+    for (const item of cat.temporaryItems) {
+      if (item.isPurchased) n++;
+    }
+  }
+  return n;
+}
+
+function withCounts(board: ShoppingBoard): ShoppingBoard {
+  return {
+    ...board,
+    selectedCount: countSelected(board),
+    purchasedCount: countPurchased(board),
+  };
+}
+
+export function ShoppingSelectView({ board, onBoardChange, onStartShopping }: Props) {
+  const boardRef = useRef(board);
+  boardRef.current = board;
+  const [formPending, startFormTransition] = useTransition();
   const [showTempForm, setShowTempForm] = useState(false);
   const [tempName, setTempName] = useState("");
-  const [tempCategoryId, setTempCategoryId] = useState(
-    board.categories[0]?.id ?? ""
-  );
+  const [tempCategoryId, setTempCategoryId] = useState(board.categories[0]?.id ?? "");
+
+  const applyBoard = (next: ShoppingBoard) => {
+    const counted = withCounts(next);
+    boardRef.current = counted;
+    onBoardChange(counted);
+  };
 
   const toggle = (ingredientId: string) => {
-    // Optimistic UI
-    onBoardChange({
-      ...board,
-      categories: board.categories.map((cat) => ({
+    const prev = boardRef.current;
+    const current = prev.categories
+      .flatMap((c) => c.ingredients)
+      .find((ing) => ing.id === ingredientId);
+    const nextSelected = !current?.isSelected;
+    const itemId = nextSelected
+      ? current?.shoppingItemId && current.shoppingItemId !== "pending"
+        ? current.shoppingItemId
+        : crypto.randomUUID()
+      : undefined;
+
+    applyBoard({
+      ...prev,
+      categories: prev.categories.map((cat) => ({
         ...cat,
         ingredients: cat.ingredients.map((ing) => {
           if (ing.id !== ingredientId) return ing;
-          const nextSelected = !ing.isSelected;
           return {
             ...ing,
             isSelected: nextSelected,
             isPurchased: nextSelected ? ing.isPurchased : false,
-            shoppingItemId: nextSelected ? ing.shoppingItemId ?? "pending" : null,
+            shoppingItemId: nextSelected ? (itemId ?? null) : null,
           };
         }),
       })),
-      selectedCount: board.categories
-        .flatMap((c) => c.ingredients)
-        .reduce((n, ing) => {
-          const selected = ing.id === ingredientId ? !ing.isSelected : ing.isSelected;
-          return n + (selected ? 1 : 0);
-        }, 0) + board.categories.reduce((n, c) => n + c.temporaryItems.length, 0),
     });
 
-    startTransition(async () => {
-      await toggleShoppingSelection(ingredientId);
-      onRefresh();
+    void setShoppingSelection(ingredientId, nextSelected, itemId).catch(() => {
+      const latest = boardRef.current;
+      applyBoard({
+        ...latest,
+        categories: latest.categories.map((cat) => ({
+          ...cat,
+          ingredients: cat.ingredients.map((ing) => {
+            if (ing.id !== ingredientId) return ing;
+            return {
+              ...ing,
+              isSelected: !nextSelected,
+              shoppingItemId: !nextSelected ? (itemId ?? ing.shoppingItemId) : null,
+              isPurchased: !nextSelected ? false : ing.isPurchased,
+            };
+          }),
+        })),
+      });
     });
+  };
+
+  const removeTemp = (itemId: string) => {
+    const prev = boardRef.current;
+    applyBoard({
+      ...prev,
+      categories: prev.categories.map((cat) => ({
+        ...cat,
+        temporaryItems: cat.temporaryItems.filter((item) => item.id !== itemId),
+      })),
+    });
+    void removeShoppingItem(itemId);
   };
 
   const addTemp = () => {
     if (!tempName.trim() || !tempCategoryId) return;
-    startTransition(async () => {
-      await addTemporaryItem(tempCategoryId, tempName);
-      setTempName("");
-      setShowTempForm(false);
-      onRefresh();
+    const name = tempName.trim();
+    const categoryId = tempCategoryId;
+    setTempName("");
+    setShowTempForm(false);
+
+    startFormTransition(async () => {
+      try {
+        const item = await addTemporaryItem(categoryId, name);
+        const prev = boardRef.current;
+        applyBoard({
+          ...prev,
+          categories: prev.categories.map((cat) =>
+            cat.id === categoryId
+              ? { ...cat, temporaryItems: [...cat.temporaryItems, item] }
+              : cat
+          ),
+        });
+      } catch (err) {
+        alert(err instanceof Error ? err.message : "追加に失敗しました");
+      }
     });
   };
 
@@ -98,7 +180,6 @@ export function ShoppingSelectView({
                     name={ing.name}
                     checked={ing.isSelected}
                     onToggle={() => toggle(ing.id)}
-                    disabled={pending}
                     mode="select"
                   />
                 ))}
@@ -108,13 +189,7 @@ export function ShoppingSelectView({
                     name={item.tempName ?? ""}
                     checked
                     temporary
-                    onToggle={() => {
-                      startTransition(async () => {
-                        await removeShoppingItem(item.id);
-                        onRefresh();
-                      });
-                    }}
-                    disabled={pending}
+                    onToggle={() => removeTemp(item.id)}
                     mode="select"
                   />
                 ))}
@@ -153,7 +228,7 @@ export function ShoppingSelectView({
                 type="button"
                 className="btn btn-primary flex-1"
                 onClick={addTemp}
-                disabled={pending || !tempName.trim()}
+                disabled={formPending || !tempName.trim()}
               >
                 追加
               </button>

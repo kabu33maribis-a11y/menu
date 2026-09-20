@@ -76,7 +76,6 @@ export function ShoppingPageClient({ initialBoard, initialHistories }: Props) {
           board={board}
           onBoardChange={setBoard}
           onStartShopping={() => setMode("shop")}
-          onRefresh={refresh}
         />
       ) : null}
 
@@ -85,7 +84,6 @@ export function ShoppingPageClient({ initialBoard, initialHistories }: Props) {
           board={board}
           onBoardChange={setBoard}
           onGoSelect={() => setMode("select")}
-          onRefresh={refresh}
           onCompleted={() => {
             refresh();
             setMode("select");
