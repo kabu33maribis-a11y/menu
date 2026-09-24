@@ -910,6 +910,13 @@ h3,
     width: 3.25rem;
     font-size: 0.75rem;
   }
+
+  .choice-compact {
+    flex: 0 1 auto;
+    min-width: 5.5rem;
+    padding-left: 0.85rem;
+    padding-right: 0.85rem;
+  }
 }
 
 /* Inputs */
