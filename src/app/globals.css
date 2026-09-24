@@ -579,8 +579,8 @@ h3,
 .date-banner {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
-  padding: 1.1rem 1.15rem 1.15rem;
+  gap: 0.4rem;
+  padding: 0.6rem 0.7rem 0.65rem;
   background: linear-gradient(135deg, var(--primary-light) 0%, var(--paper-elevated) 80%);
   border-bottom: 1px solid var(--line);
 }
@@ -601,14 +601,14 @@ h3,
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 2.5rem;
-  height: 2.5rem;
+  width: 2.15rem;
+  height: 2.15rem;
   flex-shrink: 0;
   border-radius: var(--radius-full);
   border: 2px solid var(--line);
   background: var(--paper-elevated);
   color: var(--ink);
-  font-size: 1rem;
+  font-size: 0.95rem;
   box-shadow: var(--shadow-sm);
   transition: all 0.15s ease;
 }
@@ -621,7 +621,7 @@ h3,
 
 .date-banner-date {
   font-family: var(--font-serif);
-  font-size: 1.35rem;
+  font-size: 1.05rem;
   font-weight: 600;
   letter-spacing: 0.03em;
   line-height: 1.25;
@@ -663,8 +663,8 @@ h3,
 .selected-dish {
   display: flex;
   align-items: center;
-  gap: 0.75rem;
-  padding: 0.75rem 1rem;
+  gap: 0.5rem;
+  padding: 0.45rem 0.65rem;
   border-radius: var(--radius-md);
   background: var(--paper-elevated);
   border: 2px solid var(--primary);
@@ -758,23 +758,157 @@ h3,
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 0.6rem;
-  padding: 0.85rem 1.15rem 1.15rem;
+  gap: 0.45rem;
+  padding: 0.65rem 0.75rem 0.85rem;
   background: var(--paper-elevated);
   border-top: 1px solid var(--line);
 }
 
+.record-form-body {
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+  padding: 0.7rem 0.75rem 0.75rem;
+}
+
+.record-choice-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.choice-compact {
+  flex: 1;
+  min-width: 0;
+  display: inline-flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: center;
+  gap: 0.25rem;
+  padding: 0.35rem 0.4rem;
+  border-radius: var(--radius-md);
+  font-size: 0.8125rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  min-height: 2.2rem;
+}
+
+.choice-compact-icon {
+  font-size: 0.95rem;
+  line-height: 1;
+}
+
+.choice:not(.choice-on) .choice-compact-icon {
+  opacity: 0.35;
+}
+
+.choice:not(.choice-on):hover .choice-compact-icon,
+.choice.choice-on .choice-compact-icon {
+  opacity: 1;
+}
+
+.record-people {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.record-people-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.record-people-label {
+  flex-shrink: 0;
+  width: 2.75rem;
+  margin-bottom: 0;
+  font-size: 0.6875rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  color: var(--muted);
+}
+
+.record-dish {
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+}
+
+.record-memo-toggle {
+  align-self: flex-start;
+  padding: 0.15rem 0;
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  color: var(--muted);
+  background: transparent;
+  border: 0;
+}
+
+.record-memo-toggle:hover {
+  color: var(--ink);
+}
+
+.record-save-main {
+  min-width: 7.5rem;
+}
+
+.candidate-picker {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.candidate-search-row {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.candidate-add-btn {
+  flex-shrink: 0;
+  min-width: 2.5rem;
+  padding-left: 0.65rem;
+  padding-right: 0.65rem;
+}
+
+.candidate-new-form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  padding: 0.55rem 0.6rem;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  background: var(--paper-elevated);
+}
+
 @media (min-width: 768px) {
   .form-actions-bar {
-    padding: 1.15rem 1.35rem 1.35rem;
+    padding: 0.9rem 1.15rem 1.1rem;
+  }
+
+  .record-form-body {
+    padding: 0.9rem 1.15rem 1rem;
+    gap: 0.8rem;
   }
 
   .date-banner {
-    padding: 1.25rem 1.5rem 1.35rem;
+    padding: 0.85rem 1.15rem 0.9rem;
   }
 
   .date-banner-date {
-    font-size: 1.5rem;
+    font-size: 1.25rem;
+  }
+
+  .date-banner-btn {
+    width: 2.35rem;
+    height: 2.35rem;
+  }
+
+  .record-people-label {
+    width: 3.25rem;
+    font-size: 0.75rem;
   }
 }
 
@@ -1474,6 +1608,17 @@ a {
     min-height: 2.5rem;
     padding: 0.5rem 0.875rem;
     font-size: 0.8125rem;
+  }
+
+  .choice-compact {
+    min-height: 2.2rem;
+    padding: 0.35rem 0.4rem;
+    font-size: 0.8125rem;
+  }
+
+  .record-dish .btn-sm,
+  .candidate-add-btn {
+    min-height: 2.35rem;
   }
 
   .record-card {
