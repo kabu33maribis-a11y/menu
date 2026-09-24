@@ -126,13 +126,9 @@ export function CandidatePicker({
   })();
 
   return (
-    <div className="space-y-3">
-      {!showNewForm ? (
-        <button type="button" className="btn btn-secondary btn-sm" onClick={() => setShowNewForm(true)}>
-          ＋ 新規候補を追加
-        </button>
-      ) : (
-        <div className="space-y-3 rounded-xl border border-line bg-paper-elevated p-3">
+    <div className="candidate-picker">
+      {showNewForm ? (
+        <div className="candidate-new-form">
           <input
             className="input"
             placeholder="名称"
@@ -154,17 +150,28 @@ export function CandidatePicker({
             </button>
           </div>
         </div>
+      ) : (
+        <div className="candidate-search-row">
+          <input
+            className="input"
+            placeholder="候補を検索"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), load(query))}
+          />
+          <button
+            type="button"
+            className="btn btn-secondary btn-sm candidate-add-btn"
+            onClick={() => setShowNewForm(true)}
+            aria-label="新規候補を追加"
+            title="新規候補を追加"
+          >
+            ＋
+          </button>
+        </div>
       )}
 
-      <input
-        className="input"
-        placeholder="候補を検索"
-        value={query}
-        onChange={(e) => setQuery(e.target.value)}
-        onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), load(query))}
-      />
-
-      <div className="flex flex-wrap items-center gap-1.5">
+      <div className="flex flex-wrap items-center gap-1">
         {Object.entries(SORT_ORDER_LABELS).map(([value, label]) => (
           <button
             key={value}

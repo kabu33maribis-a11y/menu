@@ -20,7 +20,6 @@ type Props = {
 };
 
 function memberTone(id: string) {
-  if (id === "both") return "both";
   if (id === "member_1") return "m1";
   return "m2";
 }
@@ -30,6 +29,22 @@ function weekdayClass(dateStr: string) {
   if (day === 0) return "text-dinner";
   if (day === 6) return "text-[#4a7ab5]";
   return "text-ink";
+}
+
+function isPersonOn(value: string, personId: string) {
+  return value === "both" || value === personId;
+}
+
+function togglePerson<T extends string>(current: T, personId: string, allIds: string[]): T {
+  const selected = new Set(current === "both" ? allIds : [current]);
+  if (selected.has(personId)) {
+    if (selected.size <= 1) return current;
+    selected.delete(personId);
+  } else {
+    selected.add(personId);
+  }
+  const remaining = allIds.filter((id) => selected.has(id));
+  return (remaining.length === allIds.length ? "both" : remaining[0]) as T;
 }
 
 export function RecordForm({
@@ -63,17 +78,12 @@ export function RecordForm({
   );
   const [candidateName, setCandidateName] = useState(initial?.candidateName ?? "");
   const [memo, setMemo] = useState(initial?.memo ?? "");
+  const [showMemo, setShowMemo] = useState(Boolean(initial?.memo));
   const [savedMessage, setSavedMessage] = useState<string | null>(null);
 
   const today = todayString();
   const isToday = date === today;
-  const mealLabel = mealType === "lunch" ? "昼食" : mealType === "dinner" ? "夕食" : "その他";
-  const mealEmoji = mealType === "lunch" ? "☀️" : mealType === "dinner" ? "🌙" : "🍴";
-  const categoryLabel = category === "home_cooked" ? "自炊" : "外食";
-  const cookName =
-    cookMemberId === "both"
-      ? "2人とも"
-      : members.find((m) => m.id === cookMemberId)?.name ?? "";
+  const memberIds = members.map((m) => m.id);
 
   const save = (continueEntering: boolean) => {
     if (!candidateId) {
@@ -104,6 +114,7 @@ export function RecordForm({
           setCandidateId("");
           setCandidateName("");
           setMemo("");
+          setShowMemo(false);
           setSavedMessage("保存しました。続けて入力できます。");
           router.refresh();
         } else {
@@ -157,17 +168,15 @@ export function RecordForm({
         >
           ←
         </button>
-        <div className="min-w-0 flex-1 text-center">
-          {initial && (
-            <p className="kicker mb-1 justify-center">✏️ 編集中</p>
-          )}
-          <label className="relative mx-auto inline-flex cursor-pointer flex-col items-center">
+        <div className="flex min-w-0 flex-1 items-center justify-center gap-1.5">
+          <label className="relative inline-flex min-w-0 cursor-pointer items-center gap-1">
+            {initial && (
+              <span className="kicker mb-0" aria-hidden="true">
+                ✏️
+              </span>
+            )}
             <span className={`date-banner-date ${weekdayClass(date)}`}>
               {formatDisplayDate(date)}
-            </span>
-            <span className="mt-1 text-sm font-medium text-muted">
-              {mealEmoji} {mealLabel} · {category === "home_cooked" ? "🍳" : "🍽"} {categoryLabel}
-              {category === "home_cooked" && cookName ? ` · ${cookName}` : ""}
             </span>
             <input
               type="date"
@@ -187,21 +196,20 @@ export function RecordForm({
               aria-label="日付を選ぶ"
             />
           </label>
-          <div className="mt-2 flex justify-center gap-2">
-            {!isToday && (
-              <button
-                type="button"
-                className="badge bg-paper-elevated text-primary-dark"
-                onClick={() => {
-                  setDate(today);
-                  setSavedMessage(null);
-                }}
-              >
-                今日へ
-              </button>
-            )}
-            {isToday && <span className="badge badge-home">今日</span>}
-          </div>
+          {!isToday ? (
+            <button
+              type="button"
+              className="badge bg-paper-elevated text-primary-dark"
+              onClick={() => {
+                setDate(today);
+                setSavedMessage(null);
+              }}
+            >
+              今日へ
+            </button>
+          ) : (
+            <span className="badge badge-home">今日</span>
+          )}
         </div>
         <button
           type="button"
@@ -213,148 +221,127 @@ export function RecordForm({
         </button>
       </div>
 
-      <div className="space-y-4 px-4 py-5 sm:px-6">
+      <div className="record-form-body">
         {error && (
-          <div className="rounded-xl border border-danger/30 bg-danger-light px-4 py-3 text-sm font-medium text-danger">
+          <div className="rounded-lg border border-danger/30 bg-danger-light px-3 py-2 text-sm font-medium text-danger">
             {error}
           </div>
         )}
         {savedMessage && (
-          <div className="rounded-xl border border-secondary/30 bg-secondary-light px-4 py-3 text-sm font-medium text-secondary-dark">
+          <div className="rounded-lg border border-secondary/30 bg-secondary-light px-3 py-2 text-sm font-medium text-secondary-dark">
             {savedMessage}
           </div>
         )}
 
-        <div className="grid gap-3 sm:grid-cols-2">
-          <div>
-            <p className="label">種別</p>
-            <div className="flex gap-2">
-              <button
-                type="button"
-                className={`choice choice-tile choice-home ${category === "home_cooked" ? "choice-on" : ""}`}
-                onClick={() => {
-                  if (category !== "home_cooked") {
-                    setCategory("home_cooked");
-                    setCandidateId("");
-                    setCandidateName("");
-                  }
-                }}
-              >
-                <span className="choice-tile-icon" aria-hidden="true">
-                  🍳
-                </span>
-                自炊
-              </button>
-              <button
-                type="button"
-                className={`choice choice-tile choice-out ${category === "dining_out" ? "choice-on" : ""}`}
-                onClick={() => {
-                  if (category !== "dining_out") {
-                    setCategory("dining_out");
-                    setCandidateId("");
-                    setCandidateName("");
-                  }
-                }}
-              >
-                <span className="choice-tile-icon" aria-hidden="true">
-                  🍽
-                </span>
-                外食
-              </button>
-            </div>
+        <div className="record-choice-stack">
+          <div className="flex gap-1.5">
+            <button
+              type="button"
+              className={`choice choice-compact choice-home ${category === "home_cooked" ? "choice-on" : ""}`}
+              onClick={() => {
+                if (category !== "home_cooked") {
+                  setCategory("home_cooked");
+                  setCandidateId("");
+                  setCandidateName("");
+                }
+              }}
+            >
+              <span className="choice-compact-icon" aria-hidden="true">
+                🍳
+              </span>
+              自炊
+            </button>
+            <button
+              type="button"
+              className={`choice choice-compact choice-out ${category === "dining_out" ? "choice-on" : ""}`}
+              onClick={() => {
+                if (category !== "dining_out") {
+                  setCategory("dining_out");
+                  setCandidateId("");
+                  setCandidateName("");
+                }
+              }}
+            >
+              <span className="choice-compact-icon" aria-hidden="true">
+                🍽
+              </span>
+              外食
+            </button>
           </div>
-
-          <div>
-            <p className="label">食事区分</p>
-            <div className="flex gap-2">
-              {(
-                [
-                  ["lunch", "☀️", "昼食", "choice-lunch"],
-                  ["dinner", "🌙", "夕食", "choice-dinner"],
-                  ["other", "🍴", "その他", "choice-other"],
-                ] as const
-              ).map(([value, emoji, label, tone]) => (
-                <button
-                  key={value}
-                  type="button"
-                  className={`choice choice-tile ${tone} ${mealType === value ? "choice-on" : ""}`}
-                  onClick={() => setMealType(value)}
-                >
-                  <span className="choice-tile-icon" aria-hidden="true">
-                    {emoji}
-                  </span>
-                  {label}
-                </button>
-              ))}
-            </div>
+          <div className="flex gap-1.5">
+            {(
+              [
+                ["lunch", "☀️", "昼", "choice-lunch"],
+                ["dinner", "🌙", "夕", "choice-dinner"],
+                ["other", "🍴", "他", "choice-other"],
+              ] as const
+            ).map(([value, emoji, label, tone]) => (
+              <button
+                key={value}
+                type="button"
+                className={`choice choice-compact ${tone} ${mealType === value ? "choice-on" : ""}`}
+                onClick={() => setMealType(value)}
+                aria-label={value === "lunch" ? "昼食" : value === "dinner" ? "夕食" : "その他"}
+              >
+                <span className="choice-compact-icon" aria-hidden="true">
+                  {emoji}
+                </span>
+                {label}
+              </button>
+            ))}
           </div>
         </div>
 
-        <div className={`grid gap-3 ${category === "home_cooked" ? "sm:grid-cols-2" : ""}`}>
+        <div className="record-people">
           {category === "home_cooked" && (
-            <div className="form-block form-block-home">
-              <p className="label">👨‍🍳 作った人</p>
-              <div className="flex flex-wrap gap-2">
+            <div className="record-people-row">
+              <p className="record-people-label">作った</p>
+              <div className="flex min-w-0 flex-1 gap-1.5">
                 {members.map((m) => (
                   <button
                     key={m.id}
                     type="button"
-                    className={`choice choice-${memberTone(m.id)} ${cookMemberId === m.id ? "choice-on" : ""}`}
-                    onClick={() => setCookMemberId(m.id as CookMember)}
+                    className={`choice choice-compact choice-${memberTone(m.id)} ${
+                      isPersonOn(cookMemberId, m.id) ? "choice-on" : ""
+                    }`}
+                    onClick={() => setCookMemberId(togglePerson(cookMemberId, m.id, memberIds))}
+                    aria-pressed={isPersonOn(cookMemberId, m.id)}
                   >
                     {m.name}
                   </button>
                 ))}
-                <button
-                  type="button"
-                  className={`choice choice-both ${cookMemberId === "both" ? "choice-on" : ""}`}
-                  onClick={() => setCookMemberId("both")}
-                >
-                  2人とも
-                </button>
               </div>
-              {cookMemberId === "both" && (
-                <p className="meta mt-2">調理回数は各0.5回で集計します</p>
-              )}
             </div>
           )}
-
-          <div className={`form-block ${category === "dining_out" ? "form-block-out" : ""}`}>
-            <p className="label">😋 食べた人</p>
-            <div className="flex flex-wrap gap-2">
+          <div className="record-people-row">
+            <p className="record-people-label">食べた</p>
+            <div className="flex min-w-0 flex-1 gap-1.5">
               {members.map((m) => (
                 <button
                   key={m.id}
                   type="button"
-                  className={`choice choice-${memberTone(m.id)} ${eaters === m.id ? "choice-on" : ""}`}
-                  onClick={() => setEaters(m.id as Eaters)}
+                  className={`choice choice-compact choice-${memberTone(m.id)} ${
+                    isPersonOn(eaters, m.id) ? "choice-on" : ""
+                  }`}
+                  onClick={() => setEaters(togglePerson(eaters, m.id, memberIds))}
+                  aria-pressed={isPersonOn(eaters, m.id)}
                 >
                   {m.name}
                 </button>
               ))}
-              <button
-                type="button"
-                className={`choice choice-both ${eaters === "both" ? "choice-on" : ""}`}
-                onClick={() => setEaters("both")}
-              >
-                2人とも
-              </button>
             </div>
           </div>
         </div>
 
-        <div className="form-block form-block-dish">
-          <p className="label">📝 内容</p>
+        <div className="record-dish">
           {candidateName ? (
             <div
-              className={`selected-dish mb-3 ${
+              className={`selected-dish ${
                 category === "home_cooked" ? "selected-dish-home" : "selected-dish-out"
               }`}
             >
-              <span className="text-lg" aria-hidden="true">
-                ✓
-              </span>
-              <p className="min-w-0 flex-1 font-serif text-lg font-semibold tracking-wide">
+              <span aria-hidden="true">✓</span>
+              <p className="min-w-0 flex-1 font-serif text-base font-semibold tracking-wide">
                 {candidateName}
               </p>
               <button
@@ -369,7 +356,7 @@ export function RecordForm({
               </button>
             </div>
           ) : (
-            <p className="meta mb-3">料理や店を選んでください</p>
+            <p className="record-people-label mb-0">内容</p>
           )}
           <CandidatePicker
             key={category}
@@ -384,22 +371,43 @@ export function RecordForm({
           />
         </div>
 
-        <div>
-          <label className="label" htmlFor="record-memo">
-            メモ（任意）
-          </label>
-          <textarea
-            id="record-memo"
-            className="input min-h-[80px]"
-            placeholder="味の感想、お店のメモなど"
-            value={memo}
-            onChange={(e) => setMemo(e.target.value)}
-          />
-        </div>
+        {showMemo ? (
+          <div>
+            <div className="mb-1 flex items-center justify-between">
+              <label className="record-people-label mb-0" htmlFor="record-memo">
+                メモ
+              </label>
+              {!memo && (
+                <button
+                  type="button"
+                  className="text-xs font-medium text-muted"
+                  onClick={() => setShowMemo(false)}
+                >
+                  閉じる
+                </button>
+              )}
+            </div>
+            <textarea
+              id="record-memo"
+              className="input min-h-[64px]"
+              placeholder="味の感想、お店のメモなど"
+              value={memo}
+              onChange={(e) => setMemo(e.target.value)}
+            />
+          </div>
+        ) : (
+          <button
+            type="button"
+            className="record-memo-toggle"
+            onClick={() => setShowMemo(true)}
+          >
+            ＋ メモ
+          </button>
+        )}
       </div>
 
       <div className="form-actions-bar">
-        <button type="submit" className="btn btn-primary" disabled={pending}>
+        <button type="submit" className="btn btn-primary record-save-main" disabled={pending}>
           {initial ? "✓ 更新する" : "✓ 保存する"}
         </button>
         {!initial && (
@@ -409,7 +417,7 @@ export function RecordForm({
             disabled={pending}
             onClick={() => save(true)}
           >
-            保存して続けて入力
+            続けて入力
           </button>
         )}
         <button type="button" className="btn btn-ghost" onClick={() => router.back()}>
