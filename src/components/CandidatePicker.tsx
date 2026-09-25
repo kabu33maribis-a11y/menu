@@ -15,7 +15,10 @@ import {
 import { setCandidateSortOrder } from "@/lib/actions/settings";
 import { isDiningOutUnknownCandidate, SORT_ORDER_LABELS } from "@/lib/constants";
 import type { CandidateSortOrder, MealCategory } from "@/lib/db";
-import type { CandidateWithStats } from "@/lib/utils/candidates";
+import {
+  filterCandidates,
+  type CandidateWithStats,
+} from "@/lib/utils/candidates";
 
 type Props = {
   category: MealCategory;
@@ -50,7 +53,7 @@ export function CandidatePicker({
   const inputRef = useRef<HTMLInputElement>(null);
   const [query, setQuery] = useState("");
   const [sortOrder, setSortOrder] = useState(initialSortOrder);
-  const [candidates, setCandidates] = useState<CandidateWithStats[]>([]);
+  const [allCandidates, setAllCandidates] = useState<CandidateWithStats[]>([]);
   const [unknownCandidate, setUnknownCandidate] = useState<CandidateWithStats | null>(null);
   const [knownById, setKnownById] = useState<Record<string, CandidateWithStats>>({});
   const [loaded, setLoaded] = useState(false);
@@ -58,13 +61,13 @@ export function CandidatePicker({
   const [highlight, setHighlight] = useState(0);
   const [pending, startTransition] = useTransition();
 
-  const load = (q = query) => {
+  const loadAll = () => {
     startTransition(async () => {
-      const list = await getCandidates(category, { query: q });
+      const list = await getCandidates(category);
       const unknown = list.find(isDiningOutUnknownCandidate) ?? null;
       const visible = list.filter((c) => !isDiningOutUnknownCandidate(c));
-      setCandidates(visible);
-      if (!q || unknown) setUnknownCandidate(unknown);
+      setUnknownCandidate(unknown);
+      setAllCandidates(visible);
       setKnownById((prev) => {
         const next = { ...prev };
         for (const c of list) next[c.id] = c;
@@ -77,19 +80,13 @@ export function CandidatePicker({
   useEffect(() => {
     setUnknownCandidate(null);
     setKnownById({});
+    setAllCandidates([]);
     setQuery("");
     setOpen(false);
-    load("");
+    setLoaded(false);
+    loadAll();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [category]);
-
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      load(query);
-    }, 200);
-    return () => clearTimeout(timer);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [query]);
 
   useEffect(() => {
     const onPointerDown = (event: MouseEvent) => {
@@ -101,26 +98,26 @@ export function CandidatePicker({
     return () => document.removeEventListener("mousedown", onPointerDown);
   }, []);
 
-  const listItems = (() => {
-    const items: CandidateWithStats[] = [];
-    const seen = new Set<string>();
-    if (unknownCandidate && !query.trim()) {
-      items.push(unknownCandidate);
-      seen.add(unknownCandidate.id);
-    }
-    for (const c of candidates) {
-      items.push(c);
-      seen.add(c.id);
-    }
-    if (selectedId && !seen.has(selectedId) && knownById[selectedId] && !query.trim()) {
-      items.unshift(knownById[selectedId]);
-    }
-    return items;
-  })();
-
   const trimmedQuery = query.trim();
+
+  const filtered = filterCandidates(allCandidates, query);
+  const listItems: CandidateWithStats[] = [];
+  const seen = new Set<string>();
+
+  if (unknownCandidate && !trimmedQuery) {
+    listItems.push(unknownCandidate);
+    seen.add(unknownCandidate.id);
+  }
+  for (const c of filtered) {
+    listItems.push(c);
+    seen.add(c.id);
+  }
+  if (selectedId && !seen.has(selectedId) && knownById[selectedId] && !trimmedQuery) {
+    listItems.unshift(knownById[selectedId]);
+  }
+
   const canCreate =
-    trimmedQuery.length > 0 && !hasExactNameMatch(listItems, trimmedQuery);
+    trimmedQuery.length > 0 && !hasExactNameMatch(allCandidates, trimmedQuery);
   const optionCount = listItems.length + (canCreate ? 1 : 0);
 
   useEffect(() => {
@@ -142,7 +139,7 @@ export function CandidatePicker({
       onSelect(created.id, created.name);
       setQuery("");
       setOpen(false);
-      load("");
+      loadAll();
     });
   };
 
@@ -150,7 +147,7 @@ export function CandidatePicker({
     setSortOrder(order);
     startTransition(async () => {
       await setCandidateSortOrder(order);
-      load(query);
+      loadAll();
     });
   };
 
@@ -230,7 +227,7 @@ export function CandidatePicker({
             {label}
           </button>
         ))}
-        {pending && <span className="meta ml-1">検索中</span>}
+        {pending && <span className="meta ml-1">更新中</span>}
       </div>
 
       {open ? (
