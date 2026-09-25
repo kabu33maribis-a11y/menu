@@ -1,6 +1,13 @@
 "use client";
 
-import { useEffect, useState, useTransition } from "react";
+import {
+  useEffect,
+  useId,
+  useRef,
+  useState,
+  useTransition,
+  type KeyboardEvent,
+} from "react";
 import {
   createCandidate,
   getCandidates,
@@ -8,7 +15,10 @@ import {
 import { setCandidateSortOrder } from "@/lib/actions/settings";
 import { isDiningOutUnknownCandidate, SORT_ORDER_LABELS } from "@/lib/constants";
 import type { CandidateSortOrder, MealCategory } from "@/lib/db";
-import type { CandidateWithStats } from "@/lib/utils/candidates";
+import {
+  filterCandidates,
+  type CandidateWithStats,
+} from "@/lib/utils/candidates";
 
 type Props = {
   category: MealCategory;
@@ -17,14 +27,19 @@ type Props = {
   initialSortOrder: CandidateSortOrder;
 };
 
-function optionLabel(c: CandidateWithStats) {
-  const extra = [
+function metaLabel(c: CandidateWithStats) {
+  return [
     `${c.usageCount}回`,
     c.lastUsedDate ? c.lastUsedDate.slice(5) : null,
   ]
     .filter(Boolean)
     .join(" · ");
-  return extra ? `${c.name}（${extra}）` : c.name;
+}
+
+function hasExactNameMatch(items: CandidateWithStats[], query: string) {
+  const q = query.trim().toLowerCase();
+  if (!q) return false;
+  return items.some((c) => c.name.toLowerCase() === q);
 }
 
 export function CandidatePicker({
@@ -33,143 +48,205 @@ export function CandidatePicker({
   onSelect,
   initialSortOrder,
 }: Props) {
+  const listId = useId();
+  const rootRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
   const [query, setQuery] = useState("");
   const [sortOrder, setSortOrder] = useState(initialSortOrder);
-  const [candidates, setCandidates] = useState<CandidateWithStats[]>([]);
+  const [allCandidates, setAllCandidates] = useState<CandidateWithStats[]>([]);
   const [unknownCandidate, setUnknownCandidate] = useState<CandidateWithStats | null>(null);
   const [knownById, setKnownById] = useState<Record<string, CandidateWithStats>>({});
   const [loaded, setLoaded] = useState(false);
-  const [newName, setNewName] = useState("");
-  const [newReading, setNewReading] = useState("");
-  const [showNewForm, setShowNewForm] = useState(false);
-  const [pending, startTransition] = useTransition();
+  const [open, setOpen] = useState(false);
+  const [highlight, setHighlight] = useState(0);
+  const [busy, setBusy] = useState(false);
+  const [, startTransition] = useTransition();
 
-  const load = (q = query) => {
+  const loadAll = () => {
     startTransition(async () => {
-      const list = await getCandidates(category, { query: q });
-      const unknown = list.find(isDiningOutUnknownCandidate) ?? null;
-      const visible = list.filter((c) => !isDiningOutUnknownCandidate(c));
-      setCandidates(visible);
-      if (!q || unknown) setUnknownCandidate(unknown);
-      setKnownById((prev) => {
-        const next = { ...prev };
-        for (const c of list) next[c.id] = c;
-        return next;
-      });
-      setLoaded(true);
+      setBusy(true);
+      try {
+        const list = await getCandidates(category);
+        const unknown = list.find(isDiningOutUnknownCandidate) ?? null;
+        const visible = list.filter((c) => !isDiningOutUnknownCandidate(c));
+        setUnknownCandidate(unknown);
+        setAllCandidates(visible);
+        setKnownById((prev) => {
+          const next = { ...prev };
+          for (const c of list) next[c.id] = c;
+          return next;
+        });
+        setLoaded(true);
+      } finally {
+        setBusy(false);
+      }
     });
   };
 
   useEffect(() => {
     setUnknownCandidate(null);
     setKnownById({});
-    load("");
+    setAllCandidates([]);
+    setQuery("");
+    setOpen(false);
+    setLoaded(false);
+    loadAll();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [category]);
 
   useEffect(() => {
-    const timer = setTimeout(() => {
-      load(query);
-    }, 300);
-    return () => clearTimeout(timer);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [query]);
+    const onPointerDown = (event: MouseEvent) => {
+      if (!rootRef.current?.contains(event.target as Node)) {
+        setOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", onPointerDown);
+    return () => document.removeEventListener("mousedown", onPointerDown);
+  }, []);
+
+  const trimmedQuery = query.trim();
+
+  const filtered = filterCandidates(allCandidates, query);
+  const listItems: CandidateWithStats[] = [];
+  const seen = new Set<string>();
+
+  if (unknownCandidate && !trimmedQuery) {
+    listItems.push(unknownCandidate);
+    seen.add(unknownCandidate.id);
+  }
+  for (const c of filtered) {
+    listItems.push(c);
+    seen.add(c.id);
+  }
+  if (selectedId && !seen.has(selectedId) && knownById[selectedId] && !trimmedQuery) {
+    listItems.unshift(knownById[selectedId]);
+  }
+
+  const canCreate =
+    trimmedQuery.length > 0 && !hasExactNameMatch(allCandidates, trimmedQuery);
+  const optionCount = listItems.length + (canCreate ? 1 : 0);
+
+  useEffect(() => {
+    setHighlight(0);
+  }, [query, listItems.length, canCreate]);
+
+  const pick = (c: CandidateWithStats) => {
+    onSelect(c.id, c.name);
+    setQuery("");
+    setOpen(false);
+    inputRef.current?.blur();
+  };
+
+  const createFromQuery = (name = trimmedQuery) => {
+    const value = name.trim();
+    if (!value) return;
+    startTransition(async () => {
+      setBusy(true);
+      try {
+        const created = await createCandidate({ name: value, category });
+        onSelect(created.id, created.name);
+        setQuery("");
+        setOpen(false);
+        const list = await getCandidates(category);
+        const unknown = list.find(isDiningOutUnknownCandidate) ?? null;
+        const visible = list.filter((c) => !isDiningOutUnknownCandidate(c));
+        setUnknownCandidate(unknown);
+        setAllCandidates(visible);
+        setKnownById((prev) => {
+          const next = { ...prev };
+          for (const c of list) next[c.id] = c;
+          return next;
+        });
+        setLoaded(true);
+      } finally {
+        setBusy(false);
+      }
+    });
+  };
 
   const handleSortChange = (order: CandidateSortOrder) => {
     setSortOrder(order);
     startTransition(async () => {
-      await setCandidateSortOrder(order);
-      load(query);
+      setBusy(true);
+      try {
+        await setCandidateSortOrder(order);
+        const list = await getCandidates(category);
+        const unknown = list.find(isDiningOutUnknownCandidate) ?? null;
+        const visible = list.filter((c) => !isDiningOutUnknownCandidate(c));
+        setUnknownCandidate(unknown);
+        setAllCandidates(visible);
+        setKnownById((prev) => {
+          const next = { ...prev };
+          for (const c of list) next[c.id] = c;
+          return next;
+        });
+        setLoaded(true);
+      } finally {
+        setBusy(false);
+      }
     });
   };
 
-  const handleCreate = () => {
-    if (!newName.trim()) return;
-    startTransition(async () => {
-      const created = await createCandidate({
-        name: newName,
-        reading: newReading,
-        category,
-      });
-      setNewName("");
-      setNewReading("");
-      setShowNewForm(false);
-      onSelect(created.id, created.name);
-      load(query);
-    });
+  const handleKeyDown = (event: KeyboardEvent<HTMLInputElement>) => {
+    if (event.key === "ArrowDown") {
+      event.preventDefault();
+      setOpen(true);
+      if (optionCount === 0) return;
+      setHighlight((prev) => (prev + 1) % optionCount);
+      return;
+    }
+    if (event.key === "ArrowUp") {
+      event.preventDefault();
+      setOpen(true);
+      if (optionCount === 0) return;
+      setHighlight((prev) => (prev - 1 + optionCount) % optionCount);
+      return;
+    }
+    if (event.key === "Escape") {
+      setOpen(false);
+      return;
+    }
+    if (event.key === "Enter") {
+      event.preventDefault();
+      if (!open && trimmedQuery) {
+        setOpen(true);
+        return;
+      }
+      if (canCreate && (listItems.length === 0 || highlight === listItems.length)) {
+        createFromQuery();
+        return;
+      }
+      if (listItems[highlight]) {
+        pick(listItems[highlight]);
+      } else if (canCreate) {
+        createFromQuery();
+      }
+    }
   };
-
-  const handleSelectChange = (id: string) => {
-    if (!id) return;
-    const picked =
-      unknownCandidate?.id === id
-        ? unknownCandidate
-        : candidates.find((c) => c.id === id) ?? knownById[id];
-    if (picked) onSelect(picked.id, picked.name);
-  };
-
-  const dropdownItems = (() => {
-    const items: CandidateWithStats[] = [];
-    const seen = new Set<string>();
-    if (unknownCandidate) {
-      items.push(unknownCandidate);
-      seen.add(unknownCandidate.id);
-    }
-    for (const c of candidates) {
-      items.push(c);
-      seen.add(c.id);
-    }
-    if (selectedId && !seen.has(selectedId) && knownById[selectedId]) {
-      items.unshift(knownById[selectedId]);
-    }
-    return items;
-  })();
 
   return (
-    <div className="candidate-picker">
-      {showNewForm ? (
-        <div className="candidate-new-form">
-          <input
-            className="input"
-            placeholder="名称"
-            value={newName}
-            onChange={(e) => setNewName(e.target.value)}
-          />
-          <input
-            className="input"
-            placeholder="かな読み（任意）"
-            value={newReading}
-            onChange={(e) => setNewReading(e.target.value)}
-          />
-          <div className="flex gap-2">
-            <button type="button" className="btn btn-primary btn-sm" onClick={handleCreate} disabled={pending}>
-              追加
-            </button>
-            <button type="button" className="btn btn-ghost btn-sm" onClick={() => setShowNewForm(false)}>
-              キャンセル
-            </button>
-          </div>
-        </div>
-      ) : (
-        <div className="candidate-search-row">
-          <input
-            className="input"
-            placeholder="候補を検索"
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), load(query))}
-          />
-          <button
-            type="button"
-            className="btn btn-secondary btn-sm candidate-add-btn"
-            onClick={() => setShowNewForm(true)}
-            aria-label="新規候補を追加"
-            title="新規候補を追加"
-          >
-            ＋
-          </button>
-        </div>
-      )}
+    <div className="candidate-picker" ref={rootRef}>
+      <div className="candidate-search-row">
+        <input
+          ref={inputRef}
+          className="input"
+          placeholder="料理や店を検索・追加"
+          value={query}
+          role="combobox"
+          aria-expanded={open}
+          aria-controls={listId}
+          aria-autocomplete="list"
+          aria-activedescendant={
+            open && optionCount > 0 ? `${listId}-opt-${highlight}` : undefined
+          }
+          onChange={(e) => {
+            setQuery(e.target.value);
+            setOpen(true);
+          }}
+          onFocus={() => setOpen(true)}
+          onKeyDown={handleKeyDown}
+        />
+      </div>
 
       <div className="flex flex-wrap items-center gap-1">
         {Object.entries(SORT_ORDER_LABELS).map(([value, label]) => (
@@ -186,27 +263,70 @@ export function CandidatePicker({
             {label}
           </button>
         ))}
-        {pending && <span className="meta ml-1">検索中</span>}
+        {busy && <span className="meta ml-1">更新中</span>}
       </div>
 
-      <select
-        className="input candidate-select"
-        value={selectedId ?? ""}
-        onChange={(e) => handleSelectChange(e.target.value)}
-        disabled={!loaded}
-        aria-label="候補"
-      >
-        <option value="">
-          {!loaded ? "読み込み中" : "料理や店を選んでください"}
-        </option>
-        {dropdownItems.map((c) => (
-          <option key={c.id} value={c.id}>
-            {optionLabel(c)}
-          </option>
-        ))}
-      </select>
-      {loaded && dropdownItems.length === 0 ? (
-        <p className="text-sm text-muted">候補がありません</p>
+      {open ? (
+        <div
+          id={listId}
+          className="candidate-suggest"
+          role="listbox"
+          aria-label="候補一覧"
+        >
+          {!loaded ? (
+            <p className="candidate-suggest-empty">読み込み中…</p>
+          ) : (
+            <>
+              {listItems.map((c, index) => {
+                const meta = metaLabel(c);
+                const isOn = selectedId === c.id || highlight === index;
+                return (
+                  <button
+                    key={c.id}
+                    type="button"
+                    id={`${listId}-opt-${index}`}
+                    role="option"
+                    aria-selected={isOn}
+                    className={`candidate-suggest-item ${
+                      isDiningOutUnknownCandidate(c) ? "candidate-suggest-unknown" : ""
+                    } ${category === "home_cooked" ? "candidate-suggest-home" : "candidate-suggest-out"} ${
+                      isOn ? "candidate-suggest-item-on" : ""
+                    } ${selectedId === c.id ? "candidate-suggest-item-selected" : ""}`}
+                    onMouseEnter={() => setHighlight(index)}
+                    onClick={() => pick(c)}
+                  >
+                    <span className="candidate-suggest-name">{c.name}</span>
+                    {meta ? <span className="candidate-suggest-meta">{meta}</span> : null}
+                  </button>
+                );
+              })}
+
+              {canCreate ? (
+                <button
+                  type="button"
+                  id={`${listId}-opt-${listItems.length}`}
+                  role="option"
+                  aria-selected={highlight === listItems.length}
+                  className={`candidate-suggest-item candidate-suggest-create ${
+                    highlight === listItems.length ? "candidate-suggest-item-on" : ""
+                  }`}
+                  onMouseEnter={() => setHighlight(listItems.length)}
+                  onClick={() => createFromQuery()}
+                  disabled={busy}
+                >
+                  <span className="candidate-suggest-name">
+                    「{trimmedQuery}」を新規追加
+                  </span>
+                  <span className="candidate-suggest-meta">＋</span>
+                </button>
+              ) : null}
+
+              {listItems.length === 0 && !canCreate ? (
+                <p className="candidate-suggest-empty">候補がありません</p>
+              ) : null}
+            </>
+          )}
+        </div>
       ) : null}
     </div>
   );

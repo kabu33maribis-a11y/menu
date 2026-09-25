@@ -356,19 +356,21 @@ export function RecordForm({
               </button>
             </div>
           ) : (
-            <p className="record-people-label mb-0">内容</p>
+            <>
+              <p className="record-people-label mb-0">内容</p>
+              <CandidatePicker
+                key={category}
+                category={category}
+                selectedId={candidateId}
+                initialSortOrder={sortOrder}
+                onSelect={(id, name) => {
+                  setCandidateId(id);
+                  setCandidateName(name);
+                  setError(null);
+                }}
+              />
+            </>
           )}
-          <CandidatePicker
-            key={category}
-            category={category}
-            selectedId={candidateId}
-            initialSortOrder={sortOrder}
-            onSelect={(id, name) => {
-              setCandidateId(id);
-              setCandidateName(name);
-              setError(null);
-            }}
-          />
         </div>
 
         {showMemo ? (
