@@ -59,21 +59,27 @@ export function CandidatePicker({
   const [loaded, setLoaded] = useState(false);
   const [open, setOpen] = useState(false);
   const [highlight, setHighlight] = useState(0);
-  const [pending, startTransition] = useTransition();
+  const [busy, setBusy] = useState(false);
+  const [, startTransition] = useTransition();
 
   const loadAll = () => {
     startTransition(async () => {
-      const list = await getCandidates(category);
-      const unknown = list.find(isDiningOutUnknownCandidate) ?? null;
-      const visible = list.filter((c) => !isDiningOutUnknownCandidate(c));
-      setUnknownCandidate(unknown);
-      setAllCandidates(visible);
-      setKnownById((prev) => {
-        const next = { ...prev };
-        for (const c of list) next[c.id] = c;
-        return next;
-      });
-      setLoaded(true);
+      setBusy(true);
+      try {
+        const list = await getCandidates(category);
+        const unknown = list.find(isDiningOutUnknownCandidate) ?? null;
+        const visible = list.filter((c) => !isDiningOutUnknownCandidate(c));
+        setUnknownCandidate(unknown);
+        setAllCandidates(visible);
+        setKnownById((prev) => {
+          const next = { ...prev };
+          for (const c of list) next[c.id] = c;
+          return next;
+        });
+        setLoaded(true);
+      } finally {
+        setBusy(false);
+      }
     });
   };
 
@@ -135,19 +141,49 @@ export function CandidatePicker({
     const value = name.trim();
     if (!value) return;
     startTransition(async () => {
-      const created = await createCandidate({ name: value, category });
-      onSelect(created.id, created.name);
-      setQuery("");
-      setOpen(false);
-      loadAll();
+      setBusy(true);
+      try {
+        const created = await createCandidate({ name: value, category });
+        onSelect(created.id, created.name);
+        setQuery("");
+        setOpen(false);
+        const list = await getCandidates(category);
+        const unknown = list.find(isDiningOutUnknownCandidate) ?? null;
+        const visible = list.filter((c) => !isDiningOutUnknownCandidate(c));
+        setUnknownCandidate(unknown);
+        setAllCandidates(visible);
+        setKnownById((prev) => {
+          const next = { ...prev };
+          for (const c of list) next[c.id] = c;
+          return next;
+        });
+        setLoaded(true);
+      } finally {
+        setBusy(false);
+      }
     });
   };
 
   const handleSortChange = (order: CandidateSortOrder) => {
     setSortOrder(order);
     startTransition(async () => {
-      await setCandidateSortOrder(order);
-      loadAll();
+      setBusy(true);
+      try {
+        await setCandidateSortOrder(order);
+        const list = await getCandidates(category);
+        const unknown = list.find(isDiningOutUnknownCandidate) ?? null;
+        const visible = list.filter((c) => !isDiningOutUnknownCandidate(c));
+        setUnknownCandidate(unknown);
+        setAllCandidates(visible);
+        setKnownById((prev) => {
+          const next = { ...prev };
+          for (const c of list) next[c.id] = c;
+          return next;
+        });
+        setLoaded(true);
+      } finally {
+        setBusy(false);
+      }
     });
   };
 
@@ -227,7 +263,7 @@ export function CandidatePicker({
             {label}
           </button>
         ))}
-        {pending && <span className="meta ml-1">更新中</span>}
+        {busy && <span className="meta ml-1">更新中</span>}
       </div>
 
       {open ? (
@@ -276,7 +312,7 @@ export function CandidatePicker({
                   }`}
                   onMouseEnter={() => setHighlight(listItems.length)}
                   onClick={() => createFromQuery()}
-                  disabled={pending}
+                  disabled={busy}
                 >
                   <span className="candidate-suggest-name">
                     「{trimmedQuery}」を新規追加
