@@ -1464,6 +1464,62 @@ a {
   backdrop-filter: blur(4px);
 }
 
+.records-filter-screen {
+  position: fixed;
+  inset: 0;
+  z-index: 80;
+  display: flex;
+  flex-direction: column;
+  background: var(--paper);
+  padding-top: env(safe-area-inset-top);
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+.records-filter-backdrop {
+  display: none;
+}
+
+.records-filter-panel {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  min-height: 0;
+  flex: 1;
+  flex-direction: column;
+  background: var(--paper);
+}
+
+@media (min-width: 640px) {
+  .records-filter-screen {
+    align-items: center;
+    justify-content: center;
+    padding: 1.5rem;
+    background: transparent;
+  }
+
+  .records-filter-backdrop {
+    display: block;
+    position: absolute;
+    inset: 0;
+    border: 0;
+    background: color-mix(in srgb, var(--ink) 40%, transparent);
+    backdrop-filter: blur(4px);
+    cursor: pointer;
+  }
+
+  .records-filter-panel {
+    flex: none;
+    width: 100%;
+    max-width: 28rem;
+    max-height: min(85vh, 40rem);
+    overflow: hidden;
+    border: 1px solid var(--line);
+    border-radius: var(--radius-lg);
+    background: var(--paper-elevated);
+    box-shadow: var(--shadow-lg);
+  }
+}
+
 /* Record card */
 .record-card {
   background: var(--paper-elevated);
