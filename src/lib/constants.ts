@@ -1,3 +1,5 @@
+import type { ShiftType } from "@/lib/db";
+
 export const MEAL_TYPE_LABELS: Record<string, string> = {
   lunch: "昼食",
   dinner: "夕食",
@@ -172,4 +174,79 @@ export function getRecentDates(count: number, endDate = new Date()): string[] {
 
 export function nowIso(): string {
   return new Date().toISOString();
+}
+
+/**
+ * 勤務帯（早番・中番・遅番・休み）を使うメンバー＝メンバー2。
+ * セル表示: 「遅番（ご飯不要）」形式。
+ */
+export const SHIFT_SCHEDULE_MEMBER_ID = "member_2" as const;
+
+/** 夜ご飯の要否のみ＝メンバー1 */
+export const DINNER_ONLY_MEMBER_ID = "member_1" as const;
+
+export const SHIFT_TYPES: ShiftType[] = ["early", "mid", "late", "off"];
+
+export const SHIFT_TYPE_LABELS: Record<ShiftType, string> = {
+  early: "早番",
+  mid: "中番",
+  late: "遅番",
+  off: "休み",
+};
+
+export const SHIFT_TYPE_SHORT_LABELS: Record<ShiftType, string> = {
+  early: "早",
+  mid: "中",
+  late: "遅",
+  off: "休",
+};
+
+export const SHIFT_TYPE_COLORS: Record<ShiftType, string> = {
+  early: "#d97706",
+  mid: "#ca8a04",
+  late: "#c2410c",
+  off: "#7c3aed",
+};
+
+export const DINNER_NEED_COLOR = "#d97706";
+export const DINNER_SKIP_COLOR = "#64748b";
+
+export function memberUsesShiftSchedule(memberId: string): boolean {
+  return memberId === SHIFT_SCHEDULE_MEMBER_ID;
+}
+
+/**
+ * セル表示用ラベル。
+ * compact=true（デフォルト）はスマホ向け短縮: 「遅·不要」「要」など。
+ */
+export function formatShiftChipLabel(
+  memberId: string,
+  shiftType: ShiftType | null,
+  needsDinner: boolean | null,
+  compact = true
+): string {
+  if (memberUsesShiftSchedule(memberId)) {
+    const shift = shiftType
+      ? compact
+        ? SHIFT_TYPE_SHORT_LABELS[shiftType]
+        : SHIFT_TYPE_LABELS[shiftType]
+      : null;
+    const dinner =
+      needsDinner === null
+        ? null
+        : needsDinner
+          ? compact
+            ? "要"
+            : "ご飯いる"
+          : compact
+            ? "不要"
+            : "ご飯不要";
+    if (shift && dinner) return compact ? `${shift}·${dinner}` : `${shift}（${dinner}）`;
+    if (shift) return shift;
+    if (dinner) return dinner;
+    return "";
+  }
+  if (needsDinner === true) return compact ? "要" : "いる";
+  if (needsDinner === false) return compact ? "不要" : "いらない";
+  return "";
 }

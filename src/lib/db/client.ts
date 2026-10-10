@@ -52,6 +52,22 @@ export async function execute(
   await getClient().execute({ sql, args });
 }
 
+/** 複数ステートメントを1ラウンドトリップで実行（Turso 向け） */
+export async function executeBatch(
+  statements: { sql: string; args?: (string | number | null)[] }[]
+): Promise<void> {
+  if (statements.length === 0) return;
+  if (statements.length === 1) {
+    const [only] = statements;
+    await execute(only.sql, only.args ?? []);
+    return;
+  }
+  await getClient().batch(
+    statements.map((s) => ({ sql: s.sql, args: s.args ?? [] })),
+    "write"
+  );
+}
+
 export async function execStatements(statements: string): Promise<void> {
   const db = getClient();
   const parts = statements

@@ -6,6 +6,7 @@ import { usePathname } from "next/navigation";
 const links = [
   { href: "/", label: "ホーム", icon: "🏠" },
   { href: "/calendar", label: "カレンダー", icon: "📅" },
+  { href: "/shifts", label: "シフト", icon: "🗓️" },
   { href: "/records", label: "履歴", icon: "📋" },
   { href: "/shopping", label: "買い物", icon: "🛒" },
   { href: "/stats", label: "統計", icon: "📊" },

@@ -5,7 +5,14 @@ import {
   DINING_OUT_UNKNOWN_NAME,
   DINING_OUT_UNKNOWN_READING,
 } from "@/lib/constants";
-import { execStatements, execute, getDataDir, isRemoteDb, queryOne } from "./client";
+import {
+  execStatements,
+  execute,
+  getDataDir,
+  isRemoteDb,
+  queryAll,
+  queryOne,
+} from "./client";
 
 const CREATE_TABLES = `
 CREATE TABLE IF NOT EXISTS members (
@@ -86,6 +93,17 @@ CREATE TABLE IF NOT EXISTS purchase_history_items (
   item_sort_order INTEGER NOT NULL DEFAULT 0
 );
 
+CREATE TABLE IF NOT EXISTS shift_stamps (
+  id TEXT PRIMARY KEY,
+  date TEXT NOT NULL,
+  member_id TEXT NOT NULL CHECK(member_id IN ('member_1', 'member_2')),
+  shift_type TEXT CHECK(shift_type IS NULL OR shift_type IN ('early', 'mid', 'late', 'off')),
+  needs_dinner INTEGER CHECK(needs_dinner IS NULL OR needs_dinner IN (0, 1)),
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL,
+  UNIQUE(date, member_id)
+);
+
 CREATE INDEX IF NOT EXISTS idx_meal_records_date ON meal_records(date);
 CREATE INDEX IF NOT EXISTS idx_meal_records_candidate ON meal_records(candidate_id);
 CREATE INDEX IF NOT EXISTS idx_content_candidates_category ON content_candidates(category);
@@ -93,6 +111,8 @@ CREATE INDEX IF NOT EXISTS idx_shopping_ingredients_category ON shopping_ingredi
 CREATE INDEX IF NOT EXISTS idx_shopping_items_ingredient ON shopping_items(ingredient_id);
 CREATE INDEX IF NOT EXISTS idx_shopping_items_category ON shopping_items(category_id);
 CREATE INDEX IF NOT EXISTS idx_purchase_history_items_history ON purchase_history_items(history_id);
+CREATE INDEX IF NOT EXISTS idx_shift_stamps_date ON shift_stamps(date);
+CREATE INDEX IF NOT EXISTS idx_shift_stamps_member ON shift_stamps(member_id);
 `;
 
 const lockPath = () => path.join(getDataDir(), ".init.lock");
@@ -231,12 +251,101 @@ async function seedDatabase(now: string) {
   await seedShoppingCategories(now);
 }
 
+/** 旧 stamp_type 列から shift_type + needs_dinner へ移行（冪等） */
+async function migrateShiftStampsSchema() {
+  const table = await queryOne<{ name: string }>(
+    "SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'shift_stamps'"
+  );
+  if (!table) return;
+
+  const cols = await queryAll<{ name: string }>("PRAGMA table_info(shift_stamps)");
+  const names = new Set(cols.map((c) => String(c.name)));
+  if (names.has("shift_type") && names.has("needs_dinner") && !names.has("stamp_type")) {
+    return;
+  }
+
+  // 旧テーブル（stamp_type のみ等）を作り直す
+  await execute("DROP TABLE IF EXISTS shift_stamps_v2");
+  await execute(`
+CREATE TABLE shift_stamps_v2 (
+  id TEXT PRIMARY KEY,
+  date TEXT NOT NULL,
+  member_id TEXT NOT NULL CHECK(member_id IN ('member_1', 'member_2')),
+  shift_type TEXT CHECK(shift_type IS NULL OR shift_type IN ('early', 'mid', 'late', 'off')),
+  needs_dinner INTEGER CHECK(needs_dinner IS NULL OR needs_dinner IN (0, 1)),
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL,
+  UNIQUE(date, member_id)
+)`);
+
+  if (names.has("stamp_type")) {
+    const rows = await queryAll<{
+      id: string;
+      date: string;
+      member_id: string;
+      stamp_type: string;
+      created_at: string;
+      updated_at: string;
+    }>("SELECT * FROM shift_stamps");
+
+    for (const row of rows) {
+      let shiftType: string | null = null;
+      let needsDinner: number | null = null;
+      if (row.stamp_type === "no_dinner") {
+        needsDinner = 0;
+      } else if (
+        row.stamp_type === "early" ||
+        row.stamp_type === "mid" ||
+        row.stamp_type === "late" ||
+        row.stamp_type === "off"
+      ) {
+        shiftType = row.member_id === "member_2" ? row.stamp_type : null;
+        needsDinner = 1;
+      }
+      await execute(
+        `INSERT OR IGNORE INTO shift_stamps_v2
+         (id, date, member_id, shift_type, needs_dinner, created_at, updated_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?)`,
+        [
+          row.id,
+          row.date,
+          row.member_id,
+          shiftType,
+          needsDinner,
+          row.created_at,
+          row.updated_at,
+        ]
+      );
+    }
+  } else if (names.has("shift_type") && names.has("needs_dinner")) {
+    await execute(
+      `INSERT OR IGNORE INTO shift_stamps_v2
+       (id, date, member_id, shift_type, needs_dinner, created_at, updated_at)
+       SELECT id, date, member_id, shift_type, needs_dinner, created_at, updated_at
+       FROM shift_stamps`
+    );
+  }
+
+  await execute("DROP TABLE shift_stamps");
+  await execute("ALTER TABLE shift_stamps_v2 RENAME TO shift_stamps");
+  await execute(
+    "CREATE INDEX IF NOT EXISTS idx_shift_stamps_date ON shift_stamps(date)"
+  );
+  await execute(
+    "CREATE INDEX IF NOT EXISTS idx_shift_stamps_member ON shift_stamps(member_id)"
+  );
+}
+
 async function initializeDatabaseCore() {
   await execStatements(CREATE_TABLES);
+  await migrateShiftStampsSchema();
   await seedDatabase(new Date().toISOString());
 }
 
-type GlobalWithDb = typeof globalThis & { __kenkonDbReady?: Promise<void> };
+type GlobalWithDb = typeof globalThis & {
+  __kenkonDbReady?: Promise<void>;
+  __kenkonShiftMigrated?: boolean;
+};
 
 export async function ensureDatabase() {
   const g = globalThis as GlobalWithDb;
@@ -244,6 +353,11 @@ export async function ensureDatabase() {
     g.__kenkonDbReady = withInitLock(initializeDatabaseCore);
   }
   await g.__kenkonDbReady;
+  // ホットリロード後でも旧スキーマなら移行する
+  if (!g.__kenkonShiftMigrated) {
+    await migrateShiftStampsSchema();
+    g.__kenkonShiftMigrated = true;
+  }
 }
 
 /** @deprecated Use ensureDatabase() */

@@ -20,6 +20,7 @@ const TABLES = [
   "shopping_items",
   "purchase_histories",
   "purchase_history_items",
+  "shift_stamps",
 ] as const;
 
 function loadEnvLocal() {

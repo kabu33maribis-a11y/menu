@@ -3,6 +3,9 @@ export type MealType = "lunch" | "dinner" | "other";
 export type Eaters = "member_1" | "member_2" | "both";
 export type CookMember = "member_1" | "member_2" | "both";
 export type CandidateSortOrder = "frequency" | "recent" | "kana";
+/** 勤務帯（メンバー2のみ） */
+export type ShiftType = "early" | "mid" | "late" | "off";
+export type ShiftMemberId = "member_1" | "member_2";
 
 export type Member = {
   id: string;
@@ -83,5 +86,25 @@ export type PurchaseHistoryItem = {
   itemSortOrder: number;
 };
 
-export { getClient, getDbPath, getDbUrl, isRemoteDb, queryAll, queryOne, execute } from "./client";
+/** シフト／夜ご飯（1日×1メンバー）。shiftType は member_2 のみ使用 */
+export type ShiftStamp = {
+  id: string;
+  date: string;
+  memberId: ShiftMemberId;
+  shiftType: ShiftType | null;
+  needsDinner: boolean | null;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export {
+  getClient,
+  getDbPath,
+  getDbUrl,
+  isRemoteDb,
+  queryAll,
+  queryOne,
+  execute,
+  executeBatch,
+} from "./client";
 export { ensureDatabase, initializeDatabase } from "./init";
